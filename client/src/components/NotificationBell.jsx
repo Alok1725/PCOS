@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { Bell, X, Check, CheckCheck, Activity, Droplets, Smile, Upload } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { requestNotificationPermission, sendPushNotification } from '../utils/pushNotifications';
 
 const API = 'http://localhost:3001/api';
 
@@ -16,6 +17,9 @@ export default function NotificationBell() {
   useEffect(() => {
     if (!user) return;
 
+    // Request push notification permissions on mount
+    requestNotificationPermission();
+
     const fetchAll = async () => {
       try {
         // Fetch from server
@@ -24,12 +28,13 @@ export default function NotificationBell() {
 
         // Fetch today's logs to build smart reminders
         const today = new Date().toISOString().split('T')[0];
-        const [symptomsRes, waterRes, moodRes, assessRes, settingsRes] = await Promise.all([
+        const [symptomsRes, waterRes, moodRes, assessRes, settingsRes, suppsRes] = await Promise.all([
           fetch(`${API}/symptoms/${user.id}`).then(r => r.json()).catch(() => []),
           fetch(`${API}/water/${user.id}`).then(r => r.json()).catch(() => ({ glasses: 0 })),
           fetch(`${API}/mood/${user.id}`).then(r => r.json()).catch(() => []),
           fetch(`${API}/assessments/${user.id}`).then(r => r.json()).catch(() => []),
           fetch(`${API}/settings/${user.id}`).then(r => r.json()).catch(() => ({})),
+          fetch(`${API}/supplements/${user.id}`).then(r => r.json()).catch(() => []),
         ]);
 
         const userSettings = settingsRes || {};
@@ -40,6 +45,7 @@ export default function NotificationBell() {
         const symptoms = Array.isArray(symptomsRes) ? symptomsRes : [];
         const moods = Array.isArray(moodRes) ? moodRes : [];
         const assessments = Array.isArray(assessRes) ? assessRes : [];
+        const supplements = Array.isArray(suppsRes) ? suppsRes : [];
 
         const hasLoggedSymptoms = symptoms.some(s => s.log_date === today);
         const hasLoggedWater = (waterRes?.glasses || 0) > 0;
@@ -50,51 +56,86 @@ export default function NotificationBell() {
         const smartReminders = [];
         const reminderReadKey = `cyclesync_reminders_read_${user.id}_${today}`;
         const readReminders = JSON.parse(localStorage.getItem(reminderReadKey) || '[]');
+        
+        // Push notification logic
+        const currentHour = new Date().getHours();
+        const shouldPushWater = remindWater && !hasLoggedWater && currentHour >= 12; // e.g. prompt at noon
+        const shouldPushStats = (remindSymptoms || remindMood) && (!hasLoggedSymptoms || !hasLoggedMood) && currentHour >= 18; // e.g. prompt in evening
 
         if (!hasLoggedSymptoms && remindSymptoms) {
+          const id = `reminder_symptoms_${today}`;
           smartReminders.push({
-            id: `reminder_symptoms_${today}`,
-            type: 'reminder',
-            title: 'Log Your Symptoms',
+            id, type: 'reminder', title: 'Log Your Symptoms', 
             message: "You haven't logged any symptoms today. Tracking daily helps the AI give better insights!",
-            created_at: new Date().toISOString(),
-            is_read: readReminders.includes(`reminder_symptoms_${today}`),
-            is_local: true,
+            created_at: new Date().toISOString(), is_read: readReminders.includes(id), is_local: true,
           });
         }
         if (!hasLoggedMood && remindMood) {
+          const id = `reminder_mood_${today}`;
           smartReminders.push({
-            id: `reminder_mood_${today}`,
-            type: 'reminder',
-            title: 'How Are You Feeling?',
+            id, type: 'reminder', title: 'How Are You Feeling?',
             message: "Take a moment to log your mood. It helps track emotional patterns alongside physical symptoms.",
-            created_at: new Date().toISOString(),
-            is_read: readReminders.includes(`reminder_mood_${today}`),
-            is_local: true,
+            created_at: new Date().toISOString(), is_read: readReminders.includes(id), is_local: true,
           });
         }
+        
+        if (shouldPushStats) {
+           sendPushNotification('Time for Daily Log!', { 
+             body: "You haven't logged your health stats today. Take a quick moment for yourself!",
+             id: `push_stats_${today}`
+           });
+        }
+
         if (!hasLoggedWater && remindWater) {
+          const id = `reminder_water_${today}`;
           smartReminders.push({
-            id: `reminder_water_${today}`,
-            type: 'reminder',
-            title: 'Track Water Intake',
+            id, type: 'reminder', title: 'Track Water Intake',
             message: "Staying hydrated is crucial for hormonal balance. Log your water intake today!",
-            created_at: new Date().toISOString(),
-            is_read: readReminders.includes(`reminder_water_${today}`),
-            is_local: true,
+            created_at: new Date().toISOString(), is_read: readReminders.includes(id), is_local: true,
           });
+          
+          if (shouldPushWater) {
+             sendPushNotification('Hydration Reminder 💧', {
+               body: "Don't forget to drink water today! Your body will thank you.",
+               id: `push_water_${today}`
+             });
+          }
         }
         if (!hasAssessments) {
+          const id = `reminder_upload_${today}`;
           smartReminders.push({
-            id: `reminder_upload_${today}`,
-            type: 'reminder',
-            title: 'Upload Your First Report',
+            id, type: 'reminder', title: 'Upload Your First Report',
             message: "Get started by uploading an ultrasound or blood test report for your personalized PCOS screening.",
-            created_at: new Date().toISOString(),
-            is_read: readReminders.includes(`reminder_upload_${today}`),
-            is_local: true,
+            created_at: new Date().toISOString(), is_read: readReminders.includes(id), is_local: true,
           });
         }
+        
+        // Supplements Reminders
+        supplements.forEach(supp => {
+          if (!supp.takenToday) {
+             // Check if it's the right time of day based on timing
+             const timing = supp.timing || 'morning';
+             let isDue = false;
+             
+             if (timing === 'morning' && currentHour >= 6 && currentHour < 12) isDue = true;
+             else if (timing === 'afternoon' && currentHour >= 12 && currentHour < 18) isDue = true;
+             else if (timing === 'night' && currentHour >= 18) isDue = true;
+             
+             if (isDue) {
+                const id = `reminder_supp_${supp.id}_${today}`;
+                smartReminders.push({
+                  id, type: 'reminder', title: `Supplement: ${supp.name}`,
+                  message: `It's time to take your ${supp.name}. ${supp.hint?.hint || ''}`,
+                  created_at: new Date().toISOString(), is_read: readReminders.includes(id), is_local: true,
+                });
+                
+                sendPushNotification(`Time for: ${supp.name}`, {
+                   body: `Reminder: It's time to take ${supp.name}.`,
+                   id: `push_supp_${supp.id}_${today}`
+                });
+             }
+          }
+        });
 
         // Merge: smart reminders on top, then server notifications
         const allNotifs = [...smartReminders, ...(Array.isArray(serverNotifs) ? serverNotifs : [])];
