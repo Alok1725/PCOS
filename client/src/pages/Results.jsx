@@ -148,138 +148,15 @@ function DoctorSearchPanel({ type, riskLevel, onClose }) {
   );
 }
 
-// ══════════════════════════════════════════════════════════════════════
-// CSS Stick Figure Animations for common exercises
-// ══════════════════════════════════════════════════════════════════════
-const STICK_FIGURE_MAP = {
-  squat: 'squat', 'body weight squat': 'squat', 'chair squat': 'squat',
-  plank: 'plank', 'forearm plank': 'plank', 'side plank': 'plank',
-  walk: 'walk', 'brisk walk': 'walk', 'walking': 'walk', 'treadmill': 'walk',
-  yoga: 'yoga', 'cat cow': 'yoga', 'child pose': 'yoga', 'cobra': 'yoga', 'downward dog': 'yoga', 'sun salutation': 'yoga',
-  breathe: 'breathe', 'deep breath': 'breathe', 'breathing': 'breathe', 'pranayama': 'breathe', 'anulom': 'breathe',
-  stretch: 'stretch', 'hamstring stretch': 'stretch', 'hip stretch': 'stretch', 'cool down': 'stretch',
-};
-
-function getStickType(name) {
-  const lower = (name || '').toLowerCase();
-  for (const [key, val] of Object.entries(STICK_FIGURE_MAP)) {
-    if (lower.includes(key)) return val;
-  }
-  return null;
-}
-
-function StickFigureAnim({ type }) {
-  const base = 'stroke-current text-violet-500';
-  const figures = {
-    squat: (
-      <svg viewBox="0 0 80 100" className="w-full h-full" fill="none" strokeWidth="3" strokeLinecap="round">
-        <style>{`@keyframes squat{0%,100%{transform:translateY(0)}50%{transform:translateY(10px)}} .sq{animation:squat 1.2s ease-in-out infinite;transform-origin:50% 60%}`}</style>
-        <g className={`sq ${base}`}>
-          <circle cx="40" cy="14" r="8" />
-          <line x1="40" y1="22" x2="40" y2="52" />
-          <line x1="40" y1="30" x2="20" y2="45" />
-          <line x1="40" y1="30" x2="60" y2="45" />
-          <line x1="40" y1="52" x2="26" y2="75" />
-          <line x1="40" y1="52" x2="54" y2="75" />
-          <line x1="26" y1="75" x2="20" y2="90" />
-          <line x1="54" y1="75" x2="60" y2="90" />
-        </g>
-      </svg>
-    ),
-    plank: (
-      <svg viewBox="0 0 100 60" className="w-full h-full" fill="none" strokeWidth="3" strokeLinecap="round">
-        <style>{`@keyframes plankpulse{0%,100%{opacity:1}50%{opacity:.6}} .pl{animation:plankpulse 2s ease-in-out infinite}`}</style>
-        <g className={`pl ${base}`}>
-          <circle cx="82" cy="20" r="7" />
-          <line x1="75" y1="26" x2="15" y2="40" />
-          <line x1="62" y1="29" x2="68" y2="48" />
-          <line x1="50" y1="32" x2="56" y2="50" />
-          <line x1="15" y1="40" x2="12" y2="52" />
-          <line x1="20" y1="42" x2="18" y2="54" />
-        </g>
-      </svg>
-    ),
-    walk: (
-      <svg viewBox="0 0 80 100" className="w-full h-full" fill="none" strokeWidth="3" strokeLinecap="round">
-        <style>{`@keyframes walkleg{0%,100%{transform:rotate(-20deg)}50%{transform:rotate(20deg)}} @keyframes walkarm{0%,100%{transform:rotate(20deg)}50%{transform:rotate(-20deg)}} .wl{animation:walkleg 0.8s ease-in-out infinite;transform-origin:40px 52px} .wa{animation:walkarm 0.8s ease-in-out infinite;transform-origin:40px 32px}`}</style>
-        <g className={base}>
-          <circle cx="40" cy="13" r="8" />
-          <line x1="40" y1="21" x2="40" y2="52" />
-          <g className="wl"><line x1="40" y1="52" x2="25" y2="75" /><line x1="25" y1="75" x2="18" y2="90" /></g>
-          <line x1="40" y1="52" x2="55" y2="75" /><line x1="55" y1="75" x2="62" y2="90" />
-          <g className="wa"><line x1="40" y1="30" x2="20" y2="46" /></g>
-          <line x1="40" y1="30" x2="60" y2="46" />
-        </g>
-      </svg>
-    ),
-    yoga: (
-      <svg viewBox="0 0 100 80" className="w-full h-full" fill="none" strokeWidth="3" strokeLinecap="round">
-        <style>{`@keyframes yogawave{0%,100%{transform:scaleY(1)}50%{transform:scaleY(0.92)}} .yg{animation:yogawave 2.5s ease-in-out infinite;transform-origin:50% 50%}`}</style>
-        <g className={`yg ${base}`}>
-          <circle cx="50" cy="14" r="7" />
-          <line x1="50" y1="21" x2="50" y2="50" />
-          <line x1="50" y1="32" x2="20" y2="22" />
-          <line x1="50" y1="32" x2="80" y2="22" />
-          <line x1="50" y1="50" x2="28" y2="65" />
-          <line x1="50" y1="50" x2="72" y2="65" />
-          <line x1="28" y1="65" x2="28" y2="75" />
-          <line x1="72" y1="65" x2="72" y2="75" />
-        </g>
-      </svg>
-    ),
-    breathe: (
-      <svg viewBox="0 0 80 100" className="w-full h-full" fill="none" strokeWidth="3" strokeLinecap="round">
-        <style>{`@keyframes breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}} .br{animation:breathe 3s ease-in-out infinite;transform-origin:40px 50px}`}</style>
-        <g className={`br ${base}`}>
-          <circle cx="40" cy="13" r="8" />
-          <line x1="40" y1="21" x2="40" y2="55" />
-          <line x1="40" y1="32" x2="18" y2="48" />
-          <line x1="40" y1="32" x2="62" y2="48" />
-          <line x1="40" y1="55" x2="28" y2="78" />
-          <line x1="40" y1="55" x2="52" y2="78" />
-          <line x1="28" y1="78" x2="24" y2="92" />
-          <line x1="52" y1="78" x2="56" y2="92" />
-          <ellipse cx="40" cy="38" rx="10" ry="7" strokeDasharray="4 3" opacity="0.4" />
-        </g>
-      </svg>
-    ),
-    stretch: (
-      <svg viewBox="0 0 100 80" className="w-full h-full" fill="none" strokeWidth="3" strokeLinecap="round">
-        <style>{`@keyframes stretcharm{0%,100%{transform:rotate(0deg)}50%{transform:rotate(-18deg)}} .st{animation:stretcharm 2s ease-in-out infinite;transform-origin:50px 30px}`}</style>
-        <g className={base}>
-          <circle cx="50" cy="13" r="7" />
-          <line x1="50" y1="20" x2="50" y2="48" />
-          <g className="st"><line x1="50" y1="30" x2="18" y2="24" /></g>
-          <line x1="50" y1="30" x2="82" y2="24" />
-          <line x1="50" y1="48" x2="30" y2="70" />
-          <line x1="50" y1="48" x2="70" y2="70" />
-          <line x1="30" y1="70" x2="22" y2="78" />
-          <line x1="70" y1="70" x2="78" y2="78" />
-        </g>
-      </svg>
-    ),
-  };
-  return figures[type] || null;
-}
-
 // ──────────────────────────────────────────────────────────────────────
-// Exercise preview panel — stick figure animation + YouTube search link
+// Exercise preview panel — YouTube tutorial search link
 // ──────────────────────────────────────────────────────────────────────
-const EXERCISE_TIPS = {
-  squat: ['Keep knees behind your toes', 'Chest up, back straight', 'Lower until thighs are parallel', 'Push through heels to rise'],
-  plank: ['Body in a straight line', 'Core tight — do not sag hips', 'Breathe steadily throughout', 'Gaze slightly forward'],
-  walk: ['Arms relaxed at your sides', 'Land heel first, roll to toe', 'Maintain a steady brisk pace', 'Great for insulin sensitivity'],
-  yoga: ['Move slowly with each breath', 'Never force a deep stretch', 'Hold each pose 5–10 breaths', 'Calms hormones and cortisol'],
-  breathe: ['Inhale 4 counts, hold 4, exhale 6', 'Breathe into belly not chest', 'Reduces cortisol significantly', 'Best done on an empty stomach'],
-  stretch: ['Hold each stretch 20–30 seconds', 'Never bounce in a stretch', 'Breathe out as you deepen it', 'Best performed after warm-up'],
-};
 
 function ExerciseVideoPanel({ exerciseName, onClose }) {
   const [videoId, setVideoId] = useState(null);
   const [videoLoading, setVideoLoading] = useState(true);
   const [videoError, setVideoError] = useState(false);
 
-  const stickType = getStickType(exerciseName);
   const ytSearchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(`${exerciseName} exercise tutorial for women beginners PCOS`)}`;
 
   useEffect(() => {
@@ -306,30 +183,10 @@ function ExerciseVideoPanel({ exerciseName, onClose }) {
         <button onClick={onClose} className="w-6 h-6 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-xs transition-colors">✕</button>
       </div>
 
-      {/* Main content — two panels side by side */}
-      <div className="flex flex-col sm:flex-row">
+      {/* Main content */}
+      <div className="flex flex-col">
 
-        {/* Left: Stick figure animation */}
-        {stickType && (
-          <div className="sm:w-44 flex-shrink-0 flex flex-col items-center justify-center py-5 px-4 bg-white/70 dark:bg-white/5 border-b sm:border-b-0 sm:border-r border-violet-100 dark:border-violet-800">
-            <div className="w-28 h-28">
-              <StickFigureAnim type={stickType} />
-            </div>
-            <p className="text-[9px] text-violet-600 dark:text-violet-400 font-bold uppercase tracking-widest mt-2 text-center">Live Animation</p>
-            {/* Form tips */}
-            {EXERCISE_TIPS[stickType] && (
-              <ul className="mt-3 space-y-1 w-full">
-                {EXERCISE_TIPS[stickType].map((tip, i) => (
-                  <li key={i} className="flex items-start gap-1.5 text-[10px] text-foreground/70">
-                    <span className="text-violet-400 font-bold flex-shrink-0">✓</span>{tip}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        )}
-
-        {/* Right: Embedded YouTube video */}
+        {/* Embedded YouTube video */}
         <div className="flex-1 flex flex-col">
           {videoLoading && (
             <div className="flex-1 flex flex-col items-center justify-center py-10 gap-3">
