@@ -75,8 +75,8 @@ Rules:
 - Respond ONLY with valid JSON. No markdown, no code fences, no extra text.
 `;
 
-  console.log('[AI] Sending analysis request via Groq (Llama 3)...');
-  console.log('[AI] API Key present:', !!process.env.GROQ_API_KEY);
+  console.log('[Groq] Sending analysis request via Groq (Llama 3.3-70B)...');
+  console.log('[Groq] API Key present:', !!process.env.GROQ_API_KEY);
 
   try {
     const chatCompletion = await groq.chat.completions.create({
@@ -97,20 +97,20 @@ Rules:
     });
 
     const responseText = chatCompletion.choices[0]?.message?.content || '';
-    console.log('[AI] Response received, length:', responseText.length);
+    console.log('[Groq] Response received, length:', responseText.length);
 
     try {
       const parsedData = JSON.parse(responseText);
-      console.log('[AI] Parsed risk_level:', parsedData.risk_level);
+      console.log('[Groq] Parsed risk_level:', parsedData.risk_level);
       return parsedData;
     } catch (parseError) {
-      console.error('[AI] JSON parse error. Raw response:', responseText.substring(0, 500));
+      console.error('[Groq] JSON parse error. Raw response:', responseText.substring(0, 500));
       throw new Error('Failed to parse AI response as JSON');
     }
   } catch (error) {
-    console.error('[AI] Error details:', error.message);
+    console.error('[Groq] Error details:', error.message);
     if (error.message?.includes('API')) {
-      console.error('[AI] Check your GROQ_API_KEY in server/.env');
+      console.error('[Groq] Check your GROQ_API_KEY in server/.env');
     }
     throw new Error(`Failed to generate AI analysis: ${error.message}`);
   }

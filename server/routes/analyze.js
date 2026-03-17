@@ -1,6 +1,6 @@
 import express from 'express';
 import { supabase } from '../utils/db.js';
-import { analyzeHealthData } from '../services/geminiService.js';
+import { analyzeHealthData } from '../services/groqService.js';
 
 const router = express.Router();
 
