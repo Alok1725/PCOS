@@ -3,7 +3,7 @@ import { Bell, X, Check, CheckCheck, Activity, Droplets, Smile, Upload } from 'l
 import { useAuth } from '../context/AuthContext';
 import { requestNotificationPermission, sendPushNotification } from '../utils/pushNotifications';
 
-const API = 'http://localhost:3001/api';
+const API = `${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}`}/api`;
 
 export default function NotificationBell() {
   const { user } = useAuth();

@@ -38,7 +38,7 @@ import {
   Clock, Target, BarChart3, Pill, Camera, X as XIcon, Plus, Trash2
 } from 'lucide-react';
 
-const API = 'http://localhost:3001/api';
+const API = `${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}`}/api`;
 
 const SYMPTOMS = [
   { id: 'acne', label: 'Acne', emoji: '😣' },

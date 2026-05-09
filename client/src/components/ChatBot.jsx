@@ -115,14 +115,14 @@ export default function ChatBot() {
     prevUserIdRef.current = user.id;
 
     // Fetch profile name
-    axios.get(`http://localhost:3001/api/profile/${user.id}`)
+    axios.get(`${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}`}/api/profile/${user.id}`)
       .then(res => {
         setUserName(res.data?.full_name || '');
       })
       .catch(() => setUserName(''));
 
     // Check if user has assessments
-    axios.get(`http://localhost:3001/api/assessments/${user.id}`)
+    axios.get(`${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}`}/api/assessments/${user.id}`)
       .then(res => {
         setHasAssessments(Array.isArray(res.data) && res.data.length > 0);
       })
@@ -172,7 +172,7 @@ export default function ChatBot() {
     try {
       const pageContext = `Page: ${getPageName(location.pathname)}\nUser Name: ${userName || 'Not set yet'}\nHas previous assessments: ${hasAssessments ? 'Yes' : 'No'}`;
 
-      const res = await axios.post('http://localhost:3001/api/chat', {
+      const res = await axios.post(`${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}`}/api/chat`, {
         message: trimmed,
         pageContext,
         userName: userName || null,

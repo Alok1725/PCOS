@@ -56,7 +56,7 @@ export default function UploadPage() {
         formData.append('file', usgFile);
         formData.append('userId', user.id);
         formData.append('reportType', 'ultrasound');
-        const res = await axios.post('http://localhost:3001/api/upload/report', formData);
+        const res = await axios.post(`${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}`}/api/upload/report`, formData);
         usgReportId = res.data.reportId;
       }
 
@@ -67,13 +67,13 @@ export default function UploadPage() {
         formData.append('file', bloodFile);
         formData.append('userId', user.id);
         formData.append('reportType', 'blood_test');
-        const res = await axios.post('http://localhost:3001/api/upload/report', formData);
+        const res = await axios.post(`${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}`}/api/upload/report`, formData);
         bloodReportId = res.data.reportId;
       }
 
       // 3. Analyze
       setStatusMsg('Running AI Analysis. This may take a minute...');
-      const analyzeRes = await axios.post('http://localhost:3001/api/analyze', {
+      const analyzeRes = await axios.post(`${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}`}/api/analyze`, {
         userId: user.id,
         usgReportId,
         bloodReportId

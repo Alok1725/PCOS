@@ -26,12 +26,12 @@ export default function Sidebar() {
   useEffect(() => {
     if (!user) return;
     // Fetch user name
-    fetch(`http://localhost:3001/api/profile/${user.id}`)
+    fetch(`${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}`}/api/profile/${user.id}`)
       .then(r => r.json())
       .then(d => setUserName(d?.full_name?.split(' ')[0] || ''))
       .catch(() => {});
     // Fetch unread notifications count
-    fetch(`http://localhost:3001/api/notifications/${user.id}`)
+    fetch(`${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}`}/api/notifications/${user.id}`)
       .then(r => r.json())
       .then(n => setUnreadCount(Array.isArray(n) ? n.filter(x => !x.is_read).length : 0))
       .catch(() => {});

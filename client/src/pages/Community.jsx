@@ -16,7 +16,7 @@ const TAG_COLORS = {
   question: 'bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400',
 };
 
-const API = 'http://localhost:3001/api';
+const API = `${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}`}/api`;
 
 export default function Community() {
   const { user } = useAuth();

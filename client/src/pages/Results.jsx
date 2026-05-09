@@ -163,7 +163,7 @@ function ExerciseVideoPanel({ exerciseName, onClose }) {
     setVideoLoading(true);
     setVideoError(false);
     setVideoId(null);
-    fetch(`http://localhost:3001/api/exercise-video?q=${encodeURIComponent(exerciseName)}`)
+    fetch(`${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}`}/api/exercise-video?q=${encodeURIComponent(exerciseName)}`)
       .then(r => r.ok ? r.json() : Promise.reject())
       .then(data => { if (data.videoId) setVideoId(data.videoId); else setVideoError(true); })
       .catch(() => setVideoError(true))
@@ -366,7 +366,7 @@ function WellnessPlanSection({ riskLevel, riskScore, parsedValues, aiSummary, pr
     setLoading(true);
     setError('');
     try {
-      const res = await fetch('http://localhost:3001/api/wellness', {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}`}/api/wellness`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ riskLevel, riskScore, parsedValues, aiSummary, profile, dietaryPreference: pref }),
@@ -575,7 +575,7 @@ function DoctorPrepCard({ riskLevel, parsedValues, aiSummary }) {
     setOpen(true);
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:3001/api/ai/doctor-prep', {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}`}/api/ai/doctor-prep`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ riskLevel, parsedValues, aiSummary }),
@@ -692,7 +692,7 @@ export default function Results() {
 
   useEffect(() => {
     if (!user) return;
-    fetch(`http://localhost:3001/api/assessments/${user.id}`)
+    fetch(`${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}`}/api/assessments/${user.id}`)
       .then(r => r.json())
       .then(d => setAllAssessments(Array.isArray(d) ? d : []))
       .catch(() => {});
@@ -701,7 +701,7 @@ export default function Results() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await fetch(`http://localhost:3001/api/assessments/detail/${id}`);
+        const res = await fetch(`${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}`}/api/assessments/detail/${id}`);
         if (!res.ok) throw new Error('Failed to fetch assessment');
         const json = await res.json();
         setData(json);
@@ -1062,7 +1062,7 @@ function SymptomPatternsCard({ userId }) {
     if (!userId) return;
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:3001/api/ai/symptom-patterns', {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}`}/api/ai/symptom-patterns`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId }),
       });
@@ -1137,7 +1137,7 @@ function DietSwapCard({ riskLevel }) {
   const fetchSwap = async (meal) => {
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:3001/api/ai/diet-swap', {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}`}/api/ai/diet-swap`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ currentMeal: meal || meals[Math.floor(Math.random() * meals.length)], mealType: 'any', riskLevel }),
       });

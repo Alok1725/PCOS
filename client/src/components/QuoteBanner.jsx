@@ -20,7 +20,7 @@ export default function QuoteBanner({ riskLevel }) {
     }
 
     // Fetch new quote
-    fetch('http://localhost:3001/api/ai/quote', {
+    fetch(`${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}`}/api/ai/quote`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ riskLevel: riskLevel || 'none', userName: '' }),

@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button';
 import { Settings as SettingsIcon, Bell, Trash2, Download, Shield, Clock, AlertTriangle, ChevronUp, ChevronDown } from 'lucide-react';
 
-const API = 'http://localhost:3001/api';
+const API = `${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}`}/api`;
 
 // ═══ Custom Clock Time Picker ═══
 function ClockTimePicker({ value, onChange }) {

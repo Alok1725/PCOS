@@ -9,7 +9,7 @@ import {
   Video, ChevronDown, ChevronUp, MessageCircle, Send, Trash2
 } from 'lucide-react';
 
-const API = 'http://localhost:3001/api';
+const API = `${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}`}/api`;
 
 const SPECIALIST_TYPES = [
   { id: 'gynecologist', title: 'Gynecologist', subtitle: 'PCOS diagnosis, menstrual issues', icon: Heart, color: 'from-pink-500 to-rose-500', searchQuery: 'gynecologist+doctor+near+me' },

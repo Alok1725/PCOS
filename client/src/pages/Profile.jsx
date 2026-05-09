@@ -23,7 +23,7 @@ export default function Profile() {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const res = await axios.get(`http://localhost:3001/api/profile/${user.id}`);
+        const res = await axios.get(`${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}`}/api/profile/${user.id}`);
         const data = res.data;
         if (data) {
           setFullName(data.full_name || '');
@@ -39,7 +39,7 @@ export default function Profile() {
 
   useEffect(() => {
     if (!user) return;
-    fetch(`http://localhost:3001/api/assessments/${user.id}`)
+    fetch(`${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}`}/api/assessments/${user.id}`)
       .then(r => r.json())
       .then(d => setAssessments(Array.isArray(d) ? d : []))
       .catch(() => {});
@@ -48,7 +48,7 @@ export default function Profile() {
   const handleSave = async () => {
     setSaving(true); setSaveSuccess(false);
     try {
-      await axios.patch(`http://localhost:3001/api/profile/${user.id}`, {
+      await axios.patch(`${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}`}/api/profile/${user.id}`, {
         full_name: fullName.trim() || null,
         age: parseInt(formAge) || null,
         weight_kg: parseFloat(formWeight) || null,
