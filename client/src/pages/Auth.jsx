@@ -35,6 +35,8 @@ export default function Auth({ isSignUp }) {
   const { signIn, signUp, signInWithGoogle, signInWithGitHub } = useAuth();
   const navigate = useNavigate();
 
+  const [emailSent, setEmailSent] = useState(false);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -42,8 +44,12 @@ export default function Auth({ isSignUp }) {
 
     try {
       if (isSignUp) {
-        await signUp(email, password);
-        navigate('/onboarding');
+        const data = await signUp(email, password);
+        if (data?.session) {
+          navigate('/onboarding');
+        } else {
+          setEmailSent(true);
+        }
       } else {
         await signIn(email, password);
         navigate('/dashboard');
@@ -81,6 +87,17 @@ export default function Auth({ isSignUp }) {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {emailSent ? (
+            <div className="space-y-4 text-center py-2">
+              <p className="text-sm text-muted-foreground">
+                We sent a confirmation link to <strong>{email}</strong>. Click it to activate your account, then come back to log in.
+              </p>
+              <p className="text-xs text-muted-foreground">Check your spam folder if you don't see it.</p>
+              <Link to="/login">
+                <Button variant="outline" className="w-full">Go to Login</Button>
+              </Link>
+            </div>
+          ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
@@ -104,13 +121,23 @@ export default function Auth({ isSignUp }) {
               />
             </div>
             
+            {!isSignUp && (
+              <div className="text-right">
+                <Link to="/forgot-password" className="text-xs text-muted-foreground hover:text-primary hover:underline">
+                  Forgot password?
+                </Link>
+              </div>
+            )}
+
             {error && <p className="text-sm text-destructive font-medium">{error}</p>}
 
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? 'Processing...' : (isSignUp ? 'Sign Up' : 'Login')}
             </Button>
           </form>
+          )}
 
+          {!emailSent && (<>
           <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">
               <span className="w-full border-t border-border" />
@@ -151,6 +178,7 @@ export default function Auth({ isSignUp }) {
               {isSignUp ? 'Login here' : 'Sign up'}
             </Link>
           </div>
+          </>)}
         </CardContent>
       </Card>
     </div>

@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { MessageCircle, X, Send, Sparkles, Bot, User } from 'lucide-react';
-import axios from 'axios';
+import { api } from '../lib/api';
 
 // Animated typing indicator
 const TypingDots = () => (
@@ -114,18 +114,12 @@ export default function ChatBot() {
     }
     prevUserIdRef.current = user.id;
 
-    // Fetch profile name
-    axios.get(`${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}`}/api/profile/${user.id}`)
-      .then(res => {
-        setUserName(res.data?.full_name || '');
-      })
+    api.get(`/api/profile/${user.id}`)
+      .then(d => setUserName(d?.full_name || ''))
       .catch(() => setUserName(''));
 
-    // Check if user has assessments
-    axios.get(`${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}`}/api/assessments/${user.id}`)
-      .then(res => {
-        setHasAssessments(Array.isArray(res.data) && res.data.length > 0);
-      })
+    api.get(`/api/assessments/${user.id}`)
+      .then(d => setHasAssessments(Array.isArray(d) && d.length > 0))
       .catch(() => setHasAssessments(false));
   }, [user]);
 
@@ -172,15 +166,14 @@ export default function ChatBot() {
     try {
       const pageContext = `Page: ${getPageName(location.pathname)}\nUser Name: ${userName || 'Not set yet'}\nHas previous assessments: ${hasAssessments ? 'Yes' : 'No'}`;
 
-      const res = await axios.post(`${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}`}/api/chat`, {
+      const res = await api.post('/api/chat', {
         message: trimmed,
         pageContext,
         userName: userName || null,
-        userId: user?.id || null,
-        chatHistory: messages.slice(-20)
+        chatHistory: messages.slice(-20),
       });
 
-      setMessages(prev => [...prev, { role: 'assistant', content: res.data.reply }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: res.reply }]);
     } catch (err) {
       console.error('Chat error:', err);
       setMessages(prev => [...prev, {

@@ -30,15 +30,14 @@ router.get('/:userId', async (req, res) => {
     const { data: supplements, error } = await supabase
       .from('supplements')
       .select('*')
-      .eq('user_id', req.params.userId)
+      .eq('user_id', req.user.id)
       .order('created_at', { ascending: true });
     if (error) throw error;
 
-    // Fetch today's logs
     const { data: logs } = await supabase
       .from('supplement_logs')
       .select('supplement_id, taken')
-      .eq('user_id', req.params.userId)
+      .eq('user_id', req.user.id)
       .eq('log_date', today);
 
     const logMap = {};
@@ -57,11 +56,11 @@ router.get('/:userId', async (req, res) => {
 // POST /api/supplements — add a supplement
 router.post('/', async (req, res) => {
   try {
-    const { userId, name, timing, notes } = req.body;
-    if (!userId || !name) return res.status(400).json({ error: 'userId and name required' });
+    const { name, timing, notes } = req.body;
+    if (!name) return res.status(400).json({ error: 'name required' });
     const { data, error } = await supabase
       .from('supplements')
-      .insert({ user_id: userId, name: name.trim(), timing: timing || 'morning', notes: notes || '' })
+      .insert({ user_id: req.user.id, name: name.trim(), timing: timing || 'morning', notes: notes || '' })
       .select().single();
     if (error) throw error;
     res.json({ ...data, takenToday: false, hint: getHint(data.name) });
@@ -71,12 +70,12 @@ router.post('/', async (req, res) => {
 // PATCH /api/supplements/:id/toggle — toggle taken today
 router.patch('/:id/toggle', async (req, res) => {
   try {
-    const { userId, taken } = req.body;
+    const { taken } = req.body;
     const today = new Date().toISOString().split('T')[0];
     const { data, error } = await supabase
       .from('supplement_logs')
       .upsert(
-        { supplement_id: req.params.id, user_id: userId, log_date: today, taken },
+        { supplement_id: req.params.id, user_id: req.user.id, log_date: today, taken },
         { onConflict: 'supplement_id,log_date' }
       ).select().single();
     if (error) throw error;
@@ -87,7 +86,7 @@ router.patch('/:id/toggle', async (req, res) => {
 // DELETE /api/supplements/:id
 router.delete('/:id', async (req, res) => {
   try {
-    const { error } = await supabase.from('supplements').delete().eq('id', req.params.id);
+    const { error } = await supabase.from('supplements').delete().eq('id', req.params.id).eq('user_id', req.user.id);
     if (error) throw error;
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }

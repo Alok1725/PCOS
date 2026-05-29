@@ -115,8 +115,7 @@ router.post('/faq', async (req, res) => {
 // ═══ AI Weekly Health Digest ═══
 router.post('/weekly-digest', async (req, res) => {
   try {
-    const { userId } = req.body;
-    if (!userId) return res.status(400).json({ error: 'userId required' });
+    const userId = req.user.id;
 
     const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
 
@@ -171,8 +170,7 @@ Be warm, supportive. Celebrate wins. If data is sparse, encourage more tracking 
 // ═══ AI Symptom Pattern Analysis ═══
 router.post('/symptom-patterns', async (req, res) => {
   try {
-    const { userId } = req.body;
-    if (!userId) return res.status(400).json({ error: 'userId required' });
+    const userId = req.user.id;
 
     const monthAgo = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
 
@@ -261,8 +259,7 @@ Focus on anti-inflammatory, low-glycemic options.` }
 // ═══ AI Risk Trend Analysis ═══
 router.post('/risk-trend', async (req, res) => {
   try {
-    const { userId } = req.body;
-    if (!userId) return res.status(400).json({ error: 'userId required' });
+    const userId = req.user.id;
 
     const { data: assessments } = await supabase
       .from('assessments')

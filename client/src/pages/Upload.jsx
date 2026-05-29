@@ -6,7 +6,7 @@ import Sidebar from '../components/layout/Sidebar';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { UploadCloud, File, Image as ImageIcon, Loader2, CheckCircle2 } from 'lucide-react';
-import axios from 'axios';
+import { api } from '../lib/api';
 
 export default function UploadPage() {
   const { user } = useAuth();
@@ -54,10 +54,9 @@ export default function UploadPage() {
         setStatusMsg('Uploading Ultrasound Image...');
         const formData = new FormData();
         formData.append('file', usgFile);
-        formData.append('userId', user.id);
         formData.append('reportType', 'ultrasound');
-        const res = await axios.post(`${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}`}/api/upload/report`, formData);
-        usgReportId = res.data.reportId;
+        const res = await api.upload('/api/upload/report', formData);
+        usgReportId = res.reportId;
       }
 
       // 2. Upload Blood Report
@@ -65,32 +64,25 @@ export default function UploadPage() {
         setStatusMsg('Uploading Blood Report...');
         const formData = new FormData();
         formData.append('file', bloodFile);
-        formData.append('userId', user.id);
         formData.append('reportType', 'blood_test');
-        const res = await axios.post(`${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}`}/api/upload/report`, formData);
-        bloodReportId = res.data.reportId;
+        const res = await api.upload('/api/upload/report', formData);
+        bloodReportId = res.reportId;
       }
 
       // 3. Analyze
       setStatusMsg('Running AI Analysis. This may take a minute...');
-      const analyzeRes = await axios.post(`${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}`}/api/analyze`, {
-        userId: user.id,
-        usgReportId,
-        bloodReportId
-      });
+      const analyzeRes = await api.post('/api/analyze', { usgReportId, bloodReportId });
 
-      if (analyzeRes.data?.assessment?.id) {
+      if (analyzeRes?.assessment?.id) {
         setStatusMsg('Analysis complete! Redirecting...');
-        setTimeout(() => {
-          navigate(`/results/${analyzeRes.data.assessment.id}`);
-        }, 1000);
+        setTimeout(() => navigate(`/results/${analyzeRes.assessment.id}`), 1000);
       } else {
-        throw new Error('Analysis returned no assessment ID');
+        throw new Error(analyzeRes?.error || 'Analysis returned no assessment ID');
       }
 
     } catch (err) {
       console.error('Upload process error:', err);
-      setErrorMsg(err.response?.data?.error || 'An error occurred during upload or analysis.');
+      setErrorMsg(err.message || 'An error occurred during upload or analysis.');
       setLoading(false);
     }
   };

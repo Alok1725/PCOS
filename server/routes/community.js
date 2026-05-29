@@ -16,13 +16,12 @@ router.get('/', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Create a post
 router.post('/', async (req, res) => {
   try {
-    const { userId, displayName, content, tags } = req.body;
+    const { displayName, content, tags } = req.body;
     const { data, error } = await supabase
       .from('community_posts')
-      .insert({ user_id: userId, display_name: displayName || 'Anonymous Warrior', content, tags: tags || [] })
+      .insert({ user_id: req.user.id, display_name: displayName || 'Anonymous Warrior', content, tags: tags || [] })
       .select()
       .single();
     if (error) throw error;
@@ -30,11 +29,9 @@ router.post('/', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Like/unlike a post (toggle)
 router.patch('/:id/like', async (req, res) => {
   try {
-    const { userId } = req.body;
-    if (!userId) return res.status(400).json({ error: 'userId required' });
+    const userId = req.user.id;
     const { data: post } = await supabase.from('community_posts').select('likes, liked_by').eq('id', req.params.id).single();
     const likedBy = post?.liked_by || [];
     const alreadyLiked = likedBy.includes(userId);
@@ -46,10 +43,9 @@ router.patch('/:id/like', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Delete own post
 router.delete('/:id', async (req, res) => {
   try {
-    const { error } = await supabase.from('community_posts').delete().eq('id', req.params.id);
+    const { error } = await supabase.from('community_posts').delete().eq('id', req.params.id).eq('user_id', req.user.id);
     if (error) throw error;
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }

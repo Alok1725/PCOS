@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button';
 import { Settings as SettingsIcon, Bell, Trash2, Download, Shield, Clock, AlertTriangle, ChevronUp, ChevronDown } from 'lucide-react';
 
-const API = `${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}`}/api`;
+import { api } from '../lib/api';
 
 // ═══ Custom Clock Time Picker ═══
 function ClockTimePicker({ value, onChange }) {
@@ -139,8 +139,7 @@ export default function Settings() {
 
   useEffect(() => {
     if (!user) return;
-    fetch(`${API}/settings/${user.id}`)
-      .then(r => r.json())
+    api.get(`/api/settings/${user.id}`)
       .then(d => setSettings(s => ({ ...s, ...d })))
       .catch(() => {});
   }, [user]);
@@ -148,11 +147,7 @@ export default function Settings() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await fetch(`${API}/settings/${user.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(settings),
-      });
+      await api.put(`/api/settings/${user.id}`, settings);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch {}
@@ -162,7 +157,7 @@ export default function Settings() {
   const handleDeleteAccount = async () => {
     setDeleting(true);
     try {
-      await fetch(`${API}/settings/${user.id}`, { method: 'DELETE' });
+      await api.delete(`/api/settings/${user.id}`);
       signOut();
     } catch {
       setDeleting(false);
@@ -172,12 +167,12 @@ export default function Settings() {
   const handleExportData = async () => {
     try {
       const [profile, assessments, symptoms, water, mood, cycle] = await Promise.all([
-        fetch(`${API}/profile/${user.id}`).then(r => r.json()).catch(() => null),
-        fetch(`${API}/assessments/${user.id}`).then(r => r.json()).catch(() => []),
-        fetch(`${API}/symptoms/${user.id}`).then(r => r.json()).catch(() => []),
-        fetch(`${API}/water/${user.id}`).then(r => r.json()).catch(() => null),
-        fetch(`${API}/mood/${user.id}`).then(r => r.json()).catch(() => []),
-        fetch(`${API}/cycle/${user.id}`).then(r => r.json()).catch(() => []),
+        api.get(`/api/profile/${user.id}`).catch(() => null),
+        api.get(`/api/assessments/${user.id}`).catch(() => []),
+        api.get(`/api/symptoms/${user.id}`).catch(() => []),
+        api.get(`/api/water/${user.id}`).catch(() => null),
+        api.get(`/api/mood/${user.id}`).catch(() => []),
+        api.get(`/api/cycle/${user.id}`).catch(() => []),
       ]);
       const data = { profile, assessments, symptoms, water, mood, cycle, exported_at: new Date().toISOString() };
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });

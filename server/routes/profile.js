@@ -5,7 +5,7 @@ const router = express.Router();
 
 router.get('/:userId', async (req, res) => {
   try {
-    const { userId } = req.params;
+    const userId = req.user.id;
 
     const { data: profile, error } = await supabase
       .from('profiles')
@@ -27,7 +27,7 @@ router.get('/:userId', async (req, res) => {
 
 router.patch('/:userId', async (req, res) => {
   try {
-    const { userId } = req.params;
+    const userId = req.user.id;
     const updates = req.body;
 
     // First check if profile row exists

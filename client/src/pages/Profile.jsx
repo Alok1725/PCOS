@@ -7,7 +7,7 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Button } from '../components/ui/button';
 import { User, Settings, Save, CheckCircle2, ShieldAlert, AlertTriangle, ShieldCheck, ChevronRight, Clock } from 'lucide-react';
-import axios from 'axios';
+import { api } from '../lib/api';
 
 export default function Profile() {
   const { user } = useAuth();
@@ -23,8 +23,7 @@ export default function Profile() {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const res = await axios.get(`${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}`}/api/profile/${user.id}`);
-        const data = res.data;
+        const data = await api.get(`/api/profile/${user.id}`);
         if (data) {
           setFullName(data.full_name || '');
           setFormAge(data.age?.toString() || '');
@@ -39,8 +38,7 @@ export default function Profile() {
 
   useEffect(() => {
     if (!user) return;
-    fetch(`${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}`}/api/assessments/${user.id}`)
-      .then(r => r.json())
+    api.get(`/api/assessments/${user.id}`)
       .then(d => setAssessments(Array.isArray(d) ? d : []))
       .catch(() => {});
   }, [user]);
@@ -48,7 +46,7 @@ export default function Profile() {
   const handleSave = async () => {
     setSaving(true); setSaveSuccess(false);
     try {
-      await axios.patch(`${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}`}/api/profile/${user.id}`, {
+      await api.patch(`/api/profile/${user.id}`, {
         full_name: fullName.trim() || null,
         age: parseInt(formAge) || null,
         weight_kg: parseFloat(formWeight) || null,

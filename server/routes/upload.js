@@ -62,15 +62,16 @@ Provide your findings as a structured medical report text.`
 
 router.post('/report', upload.single('file'), async (req, res) => {
   try {
-    const { userId, reportType } = req.body;
+    const userId = req.user.id;
+    const { reportType } = req.body;
     const file = req.file;
 
     if (!file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    if (!userId || !reportType) {
-      return res.status(400).json({ error: 'Missing userId or reportType' });
+    if (!reportType) {
+      return res.status(400).json({ error: 'Missing reportType' });
     }
 
     console.log(`[Upload] Processing ${reportType} file: ${file.originalname} (${file.mimetype}, ${file.size} bytes) for user ${userId}`);

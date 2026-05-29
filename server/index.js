@@ -1,20 +1,48 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import multer from "multer";
-import { createClient } from "@supabase/supabase-js";
+import rateLimit from "express-rate-limit";
+import { requireAuth } from "./middleware/auth.js";
 
 dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 3001;
 
-// Middleware
-app.use(cors());
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ limit: '10mb', extended: true }));
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "https://pcos1.onrender.com",
+];
 
-// DB & Storage imports moved to utils/db.js
+app.use(cors({
+  origin: (origin, cb) => {
+    if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+    cb(new Error("Not allowed by CORS"));
+  },
+  credentials: true,
+}));
+
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ limit: "10mb", extended: true }));
+
+// General limiter — all authenticated routes
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests, please try again later." },
+});
+
+// Stricter limiter for AI / heavy routes
+const aiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "AI rate limit reached, please wait before trying again." },
+});
 
 // Routes
 import uploadRoutes from "./routes/upload.js";
@@ -37,30 +65,34 @@ import exerciseVideoRoutes from "./routes/exercise-video.js";
 import supplementsRoutes from "./routes/supplements.js";
 import foodScoreRoutes from "./routes/food-score.js";
 
-app.use("/api/upload", uploadRoutes);
-app.use("/api/analyze", analyzeRoutes);
-app.use("/api/assessments", assessmentRoutes);
-app.use("/api/profile", profileRoutes);
-app.use("/api/chat", chatRoutes);
-app.use("/api/wellness", wellnessRoutes);
-app.use("/api/cycle", cycleRoutes);
-app.use("/api/symptoms", symptomRoutes);
-app.use("/api/water", waterRoutes);
-app.use("/api/mood", moodRoutes);
-app.use("/api/community", communityRoutes);
-app.use("/api/reviews", reviewRoutes);
-app.use("/api/notifications", notificationRoutes);
-app.use("/api/ai", aiTipsRoutes);
-app.use("/api/search", searchRoutes);
-app.use("/api/settings", settingsRoutes);
-app.use("/api/exercise-video", exerciseVideoRoutes);
-app.use("/api/supplements", supplementsRoutes);
-app.use("/api/food-score", foodScoreRoutes);
+// Health check (public)
+app.get("/health", (req, res) => res.status(200).json({ status: "ok" }));
 
-// Health check
-app.get("/health", (req, res) => {
-  res.status(200).json({ status: "ok" });
-});
+// All API routes require auth + general rate limit
+app.use("/api", requireAuth, generalLimiter);
+
+// AI-heavy routes get stricter limit on top
+app.use("/api/upload",        aiLimiter, uploadRoutes);
+app.use("/api/analyze",       aiLimiter, analyzeRoutes);
+app.use("/api/wellness",      aiLimiter, wellnessRoutes);
+app.use("/api/chat",          aiLimiter, chatRoutes);
+app.use("/api/ai",            aiLimiter, aiTipsRoutes);
+app.use("/api/food-score",    aiLimiter, foodScoreRoutes);
+
+// Standard routes
+app.use("/api/assessments",   assessmentRoutes);
+app.use("/api/profile",       profileRoutes);
+app.use("/api/cycle",         cycleRoutes);
+app.use("/api/symptoms",      symptomRoutes);
+app.use("/api/water",         waterRoutes);
+app.use("/api/mood",          moodRoutes);
+app.use("/api/community",     communityRoutes);
+app.use("/api/reviews",       reviewRoutes);
+app.use("/api/notifications", notificationRoutes);
+app.use("/api/search",        searchRoutes);
+app.use("/api/settings",      settingsRoutes);
+app.use("/api/exercise-video",exerciseVideoRoutes);
+app.use("/api/supplements",   supplementsRoutes);
 
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);

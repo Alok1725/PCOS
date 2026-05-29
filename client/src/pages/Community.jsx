@@ -16,7 +16,7 @@ const TAG_COLORS = {
   question: 'bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400',
 };
 
-const API = `${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}`}/api`;
+import { api } from '../lib/api';
 
 export default function Community() {
   const { user } = useAuth();
@@ -58,9 +58,8 @@ export default function Community() {
 
   const fetchPosts = (tag) => {
     setLoading(true);
-    const url = tag && tag !== 'all' ? `${API}/community?tag=${tag}` : `${API}/community`;
-    fetch(url)
-      .then(r => r.json())
+    const path = tag && tag !== 'all' ? `/api/community?tag=${tag}` : `/api/community`;
+    api.get(path)
       .then(d => { setPosts(d.posts || []); setLoading(false); })
       .catch(() => setLoading(false));
   };
@@ -69,8 +68,7 @@ export default function Community() {
 
   useEffect(() => {
     if (!user) return;
-    fetch(`${API}/profile/${user.id}`)
-      .then(r => r.json())
+    api.get(`/api/profile/${user.id}`)
       .then(d => { if (d?.full_name) setDisplayName(d.full_name.split(' ')[0]); })
       .catch(() => {});
   }, [user]);
@@ -79,12 +77,7 @@ export default function Community() {
     if (!newPost.trim()) return;
     setPosting(true);
     try {
-      const res = await fetch(`${API}/community`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, displayName, content: newPost.trim(), tags: newTags }),
-      });
-      const data = await res.json();
+      const data = await api.post('/api/community', { displayName, content: newPost.trim(), tags: newTags });
       setPosts(prev => [data, ...prev]);
       setNewPost('');
       setNewTags([]);
@@ -94,17 +87,12 @@ export default function Community() {
   };
 
   const handleLike = async (postId) => {
-    const res = await fetch(`${API}/community/${postId}/like`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: user.id }),
-    });
-    const updated = await res.json();
+    const updated = await api.patch(`/api/community/${postId}/like`, {});
     setPosts(prev => prev.map(p => p.id === postId ? { ...p, likes: updated.likes, liked_by: updated.liked_by } : p));
   };
 
   const handleDelete = async (postId) => {
-    await fetch(`${API}/community/${postId}`, { method: 'DELETE' });
+    await api.delete(`/api/community/${postId}`);
     setPosts(prev => prev.filter(p => p.id !== postId));
   };
 

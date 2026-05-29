@@ -7,13 +7,12 @@ dotenv.config();
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY || '' });
 const router = express.Router();
 
-// Get chat history for a user
 router.get('/history/:userId', async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('chat_history')
       .select('role, content, created_at')
-      .eq('user_id', req.params.userId)
+      .eq('user_id', req.user.id)
       .order('created_at', { ascending: true })
       .limit(50);
 
@@ -24,10 +23,9 @@ router.get('/history/:userId', async (req, res) => {
   }
 });
 
-// Clear chat history
 router.delete('/history/:userId', async (req, res) => {
   try {
-    await supabase.from('chat_history').delete().eq('user_id', req.params.userId);
+    await supabase.from('chat_history').delete().eq('user_id', req.user.id);
     res.json({ success: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -36,7 +34,8 @@ router.delete('/history/:userId', async (req, res) => {
 
 router.post('/', async (req, res) => {
   try {
-    const { message, pageContext, chatHistory, userName, userId } = req.body;
+    const { message, pageContext, chatHistory, userName } = req.body;
+    const userId = req.user.id;
 
     if (!message) {
       return res.status(400).json({ error: 'Message is required' });

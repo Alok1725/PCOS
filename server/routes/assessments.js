@@ -5,8 +5,6 @@ const router = express.Router();
 
 router.get('/:userId', async (req, res) => {
   try {
-    const { userId } = req.params;
-
     const { data: assessments, error } = await supabase
       .from('assessments')
       .select(`
@@ -14,13 +12,11 @@ router.get('/:userId', async (req, res) => {
         usg_report:usg_report_id(file_url, report_type),
         blood_report:blood_report_id(file_url, report_type)
       `)
-      .eq('user_id', userId)
+      .eq('user_id', req.user.id)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-
     res.status(200).json(assessments);
-
   } catch (error) {
     console.error('Fetch assessments error:', error);
     res.status(500).json({ error: 'Failed to fetch assessments' });
@@ -33,12 +29,9 @@ router.get('/detail/:assessmentId', async (req, res) => {
 
     const { data: assessment, error: assessmentError } = await supabase
       .from('assessments')
-      .select(`
-        *,
-        usg_report:usg_report_id(*),
-        blood_report:blood_report_id(*)
-      `)
+      .select(`*, usg_report:usg_report_id(*), blood_report:blood_report_id(*)`)
       .eq('id', assessmentId)
+      .eq('user_id', req.user.id)
       .single();
 
     if (assessmentError) throw assessmentError;
@@ -50,19 +43,13 @@ router.get('/detail/:assessmentId', async (req, res) => {
 
     if (recError) throw recError;
 
-    // Fetch profile for wellness plan personalization
     const { data: profile } = await supabase
       .from('profiles')
       .select('age, weight_kg, height_cm')
-      .eq('id', assessment.user_id)
+      .eq('id', req.user.id)
       .single();
 
-    res.status(200).json({
-      assessment,
-      recommendations,
-      profile: profile || {}
-    });
-
+    res.status(200).json({ assessment, recommendations, profile: profile || {} });
   } catch (error) {
     console.error('Fetch assessment detail error:', error);
     res.status(500).json({ error: 'Failed to fetch assessment detail' });

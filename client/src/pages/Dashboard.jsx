@@ -38,7 +38,7 @@ import {
   Clock, Target, BarChart3, Pill, Camera, X as XIcon, Plus, Trash2
 } from 'lucide-react';
 
-const API = `${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}`}/api`;
+import { api } from '../lib/api';
 
 const SYMPTOMS = [
   { id: 'acne', label: 'Acne', emoji: '😣' },
@@ -107,13 +107,13 @@ export default function Dashboard() {
     setSuppLoading(true);
 
     Promise.all([
-      fetch(`${API}/profile/${userId}`).then(r => r.json()).catch(() => null),
-      fetch(`${API}/assessments/${userId}`).then(r => r.json()).catch(() => []),
-      fetch(`${API}/cycle/${userId}`).then(r => r.json()).catch(() => []),
-      fetch(`${API}/symptoms/${userId}`).then(r => r.json()).catch(() => []),
-      fetch(`${API}/water/${userId}`).then(r => r.json()).catch(() => ({ glasses: 0 })),
-      fetch(`${API}/mood/${userId}`).then(r => r.json()).catch(() => []),
-      fetch(`${API}/supplements/${userId}`).then(r => r.json()).catch(() => []),
+      api.get(`/api/profile/${userId}`).catch(() => null),
+      api.get(`/api/assessments/${userId}`).catch(() => []),
+      api.get(`/api/cycle/${userId}`).catch(() => []),
+      api.get(`/api/symptoms/${userId}`).catch(() => []),
+      api.get(`/api/water/${userId}`).catch(() => ({ glasses: 0 })),
+      api.get(`/api/mood/${userId}`).catch(() => []),
+      api.get(`/api/supplements/${userId}`).catch(() => []),
     ]).then(([prof, assess, cycles, symps, water, moods, supps]) => {
       setProfile(prof);
       setAssessments(Array.isArray(assess) ? assess : []);
@@ -137,12 +137,7 @@ export default function Dashboard() {
     if (!user) return;
     setTipsLoading(true);
     const latestRisk = assessments[0]?.risk_level || 'none';
-    fetch(`${API}/ai/tips`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ riskLevel: latestRisk, symptoms: todaySymptoms }),
-    })
-      .then(r => r.json())
+    api.post('/api/ai/tips', { riskLevel: latestRisk, symptoms: todaySymptoms })
       .then(d => { setTips(d.tips || []); setTipsLoading(false); })
       .catch(() => setTipsLoading(false));
   }, [user, assessments.length]);
@@ -151,12 +146,7 @@ export default function Dashboard() {
   useEffect(() => {
     if (!user) return;
     setDigestLoading(true);
-    fetch(`${API}/ai/weekly-digest`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: user.id }),
-    })
-      .then(r => r.json())
+    api.post('/api/ai/weekly-digest', {})
       .then(d => { setWeeklyDigest(d); setDigestLoading(false); })
       .catch(() => setDigestLoading(false));
   }, [user]);
@@ -165,12 +155,7 @@ export default function Dashboard() {
   useEffect(() => {
     if (!user || assessments.length < 2) return;
     setTrendLoading(true);
-    fetch(`${API}/ai/risk-trend`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: user.id }),
-    })
-      .then(r => r.json())
+    api.post('/api/ai/risk-trend', {})
       .then(d => { setRiskTrend(d); setTrendLoading(false); })
       .catch(() => setTrendLoading(false));
   }, [user, assessments.length]);
@@ -186,7 +171,7 @@ export default function Dashboard() {
   const handleWater = async (action) => {
     const next = action === 'add' ? Math.min(waterGlasses + 1, 12) : Math.max(waterGlasses - 1, 0);
     setWaterGlasses(next);
-    await fetch(`${API}/water`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: user.id, glasses: next }) }).catch(() => {});
+    await api.post('/api/water', { glasses: next }).catch(() => {});
   };
 
   const handleSymptomToggle = async (symptomId) => {
@@ -194,23 +179,22 @@ export default function Dashboard() {
       ? todaySymptoms.filter(s => s !== symptomId)
       : [...todaySymptoms, symptomId];
     setTodaySymptoms(updated);
-    await fetch(`${API}/symptoms`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: user.id, symptoms: updated, severity: updated.length }) }).catch(() => {});
+    await api.post('/api/symptoms', { symptoms: updated, severity: updated.length }).catch(() => {});
   };
 
   const handleMood = async (moodId) => {
     setTodayMood(moodId);
-    await fetch(`${API}/mood`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: user.id, mood: moodId }) }).catch(() => {});
+    await api.post('/api/mood', { mood: moodId }).catch(() => {});
   };
 
   const handleLogPeriod = async () => {
     const today = new Date().toISOString().split('T')[0];
     const ongoing = cycleLogs.find(c => !c.end_date);
     if (ongoing) {
-      await fetch(`${API}/cycle/${ongoing.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ endDate: today }) });
+      await api.patch(`/api/cycle/${ongoing.id}`, { endDate: today });
       setCycleLogs(prev => prev.map(c => c.id === ongoing.id ? { ...c, end_date: today } : c));
     } else {
-      const res = await fetch(`${API}/cycle`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: user.id, startDate: today }) });
-      const data = await res.json();
+      const data = await api.post('/api/cycle', { startDate: today });
       setCycleLogs(prev => [data, ...prev]);
     }
   };
@@ -219,21 +203,14 @@ export default function Dashboard() {
   const handleToggleSupp = async (supp) => {
     const next = !supp.takenToday;
     setSupplements(prev => prev.map(s => s.id === supp.id ? { ...s, takenToday: next } : s));
-    await fetch(`${API}/supplements/${supp.id}/toggle`, {
-      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: user.id, taken: next }),
-    }).catch(() => {});
+    await api.patch(`/api/supplements/${supp.id}/toggle`, { taken: next }).catch(() => {});
   };
 
   const handleAddSupp = async () => {
     if (!newSuppName.trim()) return;
     setAddingSupp(true);
     try {
-      const res = await fetch(`${API}/supplements`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, name: newSuppName.trim(), timing: newSuppTiming }),
-      });
-      const data = await res.json();
+      const data = await api.post('/api/supplements', { name: newSuppName.trim(), timing: newSuppTiming });
       setSupplements(prev => [...prev, data]);
       setNewSuppName('');
       setShowAddSupp(false);
@@ -242,7 +219,7 @@ export default function Dashboard() {
 
   const handleDeleteSupp = async (id) => {
     setSupplements(prev => prev.filter(s => s.id !== id));
-    await fetch(`${API}/supplements/${id}`, { method: 'DELETE' }).catch(() => {});
+    await api.delete(`/api/supplements/${id}`).catch(() => {});
   };
 
   // ─── Food Scorer handlers ─────────────────────────────
@@ -278,11 +255,7 @@ export default function Dashboard() {
     setFoodLoading(true);
     setFoodError('');
     try {
-      const res = await fetch(`${API}/food-score`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageBase64: foodImage, mimeType: foodMime, riskLevel }),
-      });
-      const data = await res.json();
+      const data = await api.post('/api/food-score', { imageBase64: foodImage, mimeType: foodMime, riskLevel });
       setFoodScore(data);
     } catch { setFoodError('Failed to analyse. Please try again.'); }
     finally { setFoodLoading(false); }

@@ -6,11 +6,8 @@ const router = express.Router();
 
 router.post('/', async (req, res) => {
   try {
-    const { userId, usgReportId, bloodReportId } = req.body;
-
-    if (!userId) {
-      return res.status(400).json({ error: 'Missing userId' });
-    }
+    const userId = req.user.id;
+    const { usgReportId, bloodReportId } = req.body;
 
     if (!usgReportId && !bloodReportId) {
       return res.status(400).json({ error: 'At least one report must be provided' });

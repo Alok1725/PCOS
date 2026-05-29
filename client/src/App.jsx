@@ -4,6 +4,8 @@ import { ThemeProvider } from './context/ThemeContext';
 import Landing from './pages/Landing';
 import Auth from './pages/Auth';
 import AuthCallback from './pages/AuthCallback';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import Onboarding from './pages/Onboarding';
 import Dashboard from './pages/Dashboard';
 import UploadPage from './pages/Upload';
@@ -42,6 +44,8 @@ function AppRoutes() {
         <Route path="/login" element={<PublicOnlyRoute><Auth isSignUp={false} /></PublicOnlyRoute>} />
         <Route path="/signup" element={<PublicOnlyRoute><Auth isSignUp={true} /></PublicOnlyRoute>} />
         <Route path="/auth/callback" element={<AuthCallback />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/upload" element={<ProtectedRoute><UploadPage /></ProtectedRoute>} />
