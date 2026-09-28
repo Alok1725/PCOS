@@ -29,7 +29,7 @@ app.use(express.urlencoded({ limit: "10mb", extended: true }));
 // General limiter — all authenticated routes
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 200,
+  max: 1000,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many requests, please try again later." },
@@ -38,7 +38,7 @@ const generalLimiter = rateLimit({
 // Stricter limiter for AI / heavy routes
 const aiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 30,
+  max: 60,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "AI rate limit reached, please wait before trying again." },

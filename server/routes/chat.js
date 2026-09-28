@@ -1,10 +1,9 @@
 import express from 'express';
-import Groq from 'groq-sdk';
+import { getChatCompletion } from '../services/aiProvider.js';
 import { supabase } from '../utils/db.js';
 import dotenv from 'dotenv';
 dotenv.config();
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY || '' });
 const router = express.Router();
 
 router.get('/history/:userId', async (req, res) => {
@@ -89,15 +88,14 @@ IMPORTANT RULES:
     // Add current message
     messages.push({ role: 'user', content: message });
 
-    const chatCompletion = await groq.chat.completions.create({
+    const completionResult = await getChatCompletion({
       messages,
-      model: 'llama-3.3-70b-versatile',
       temperature: 0.6,
-      max_tokens: 512,
+      maxTokens: 512,
     });
 
-    const reply = chatCompletion.choices[0]?.message?.content || 'I\'m sorry, I couldn\'t generate a response.';
-    console.log(`[Chat] AI reply: "${reply.substring(0, 80)}..."`);
+    const reply = completionResult.text || "I'm sorry, I couldn't generate a response.";
+    console.log(`[Chat] AI (${completionResult.provider}/${completionResult.model}) reply: "${reply.substring(0, 80)}..."`);
 
     // Save to chat history if userId provided
     if (userId) {

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 
 const PCOS_SUPPLEMENTS = [
   'Inositol (Myo-Inositol)',
@@ -99,10 +99,24 @@ export default function Dashboard() {
   const [foodLoading, setFoodLoading] = useState(false);
   const [foodError, setFoodError] = useState('');
 
+  const initialLoadRef = useRef(null);
+  const aiTipsRef = useRef(null);
+  const digestRef = useRef(null);
+  const trendRef = useRef(null);
+
   // Fetch all data
   useEffect(() => {
-    if (!user) return;
-    const userId = user.id;
+    if (!user) {
+    initialLoadRef.current = null;
+    return;
+  }
+
+  if (initialLoadRef.current === user.id) return;
+
+  initialLoadRef.current = user.id;
+
+  const userId = user.id;
+
     setLoading(true);
     setSuppLoading(true);
 
@@ -134,31 +148,92 @@ export default function Dashboard() {
 
   // Fetch AI tips
   useEffect(() => {
-    if (!user) return;
-    setTipsLoading(true);
-    const latestRisk = assessments[0]?.risk_level || 'none';
-    api.post('/api/ai/tips', { riskLevel: latestRisk, symptoms: todaySymptoms })
-      .then(d => { setTips(d.tips || []); setTipsLoading(false); })
-      .catch(() => setTipsLoading(false));
-  }, [user, assessments.length]);
+  if (!user || loading) return;
+
+  const latestAssessmentId = assessments[0]?.id || 'none';
+  const key = `${user.id}:${latestAssessmentId}`;
+
+  if (aiTipsRef.current === key) return;
+  aiTipsRef.current = key;
+
+  setTipsLoading(true);
+
+  const latestRisk = assessments[0]?.risk_level || 'none';
+
+  api.post('/api/ai/tips', {
+    riskLevel: latestRisk,
+    symptoms: todaySymptoms,
+  })
+    .then((data) => {
+      setTips(data.tips || []);
+    })
+    .catch((err) => {
+      console.error('AI tips error:', err);
+    })
+    .finally(() => {
+      setTipsLoading(false);
+    });
+}, [user, loading, assessments]);
 
   // Fetch AI Weekly Digest
   useEffect(() => {
-    if (!user) return;
-    setDigestLoading(true);
-    api.post('/api/ai/weekly-digest', {})
-      .then(d => { setWeeklyDigest(d); setDigestLoading(false); })
-      .catch(() => setDigestLoading(false));
-  }, [user]);
+  if (!user || loading) return;
+
+  const cacheKey = `pcos-weekly-digest-${user.id}`;
+
+  // Use cached digest if available
+  const cached = sessionStorage.getItem(cacheKey);
+
+  if (cached) {
+    try {
+      setWeeklyDigest(JSON.parse(cached));
+    } catch {
+      sessionStorage.removeItem(cacheKey);
+    }
+    return;
+  }
+
+  if (digestRef.current === user.id) return;
+  digestRef.current = user.id;
+
+  setDigestLoading(true);
+
+  api.post('/api/ai/weekly-digest', {})
+    .then((data) => {
+      setWeeklyDigest(data);
+      sessionStorage.setItem(cacheKey, JSON.stringify(data));
+    })
+    .catch((err) => {
+      console.error('Weekly digest error:', err);
+    })
+    .finally(() => {
+      setDigestLoading(false);
+    });
+}, [user, loading]);
 
   // Fetch AI Risk Trend
   useEffect(() => {
-    if (!user || assessments.length < 2) return;
-    setTrendLoading(true);
-    api.post('/api/ai/risk-trend', {})
-      .then(d => { setRiskTrend(d); setTrendLoading(false); })
-      .catch(() => setTrendLoading(false));
-  }, [user, assessments.length]);
+  if (!user || loading || assessments.length < 2) return;
+
+  const latestAssessmentId = assessments[0]?.id || 'none';
+  const key = `${user.id}:${assessments.length}:${latestAssessmentId}`;
+
+  if (trendRef.current === key) return;
+  trendRef.current = key;
+
+  setTrendLoading(true);
+
+  api.post('/api/ai/risk-trend', {})
+    .then((data) => {
+      setRiskTrend(data);
+    })
+    .catch((err) => {
+      console.error('Risk trend error:', err);
+    })
+    .finally(() => {
+      setTrendLoading(false);
+    });
+}, [user, loading, assessments]);
 
   // Auto-rotate tips
   useEffect(() => {

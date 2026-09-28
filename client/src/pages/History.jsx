@@ -7,6 +7,8 @@ import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Calendar, ChevronRight } from 'lucide-react';
 
+import { api } from '../lib/api';
+
 export default function History() {
   const { user } = useAuth();
   const [assessments, setAssessments] = useState([]);
@@ -15,11 +17,8 @@ export default function History() {
   useEffect(() => {
     const fetchHistory = async () => {
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}`}/api/assessments/${user.id}`);
-        if (res.ok) {
-          const data = await res.json();
-          setAssessments(data);
-        }
+        const data = await api.get(`/api/assessments/${user.id}`);
+        setAssessments(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error('Failed to load history', err);
       } finally {

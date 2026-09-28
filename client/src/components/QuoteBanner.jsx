@@ -1,40 +1,48 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Sparkles } from 'lucide-react';
+import { api } from '../lib/api';
+
+const DEFAULT_QUOTE = {
+  quote: "Every step you take towards understanding your body is a step towards healing.",
+  author: "CycleSync AI",
+};
 
 export default function QuoteBanner({ riskLevel }) {
   const { user } = useAuth();
-  const [quote, setQuote] = useState(null);
+  const [quote, setQuote] = useState(DEFAULT_QUOTE);
 
   useEffect(() => {
+    if (!user) {
+      setQuote(DEFAULT_QUOTE);
+      return;
+    }
+
     // Check if we already fetched today
     const cached = localStorage.getItem('cyclesync-daily-quote');
     if (cached) {
       try {
         const { data, date } = JSON.parse(cached);
-        if (date === new Date().toISOString().split('T')[0]) {
+        if (date === new Date().toISOString().split('T')[0] && data?.quote) {
           setQuote(data);
           return;
         }
       } catch {}
     }
 
-    // Fetch new quote
-    fetch(`${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}`}/api/ai/quote`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ riskLevel: riskLevel || 'none', userName: '' }),
-    })
-      .then(r => r.json())
+    // Fetch new quote with authentication
+    api.post('/api/ai/quote', { riskLevel: riskLevel || 'none', userName: '' })
       .then(data => {
-        setQuote(data);
-        localStorage.setItem('cyclesync-daily-quote', JSON.stringify({
-          data,
-          date: new Date().toISOString().split('T')[0]
-        }));
+        if (data?.quote) {
+          setQuote(data);
+          localStorage.setItem('cyclesync-daily-quote', JSON.stringify({
+            data,
+            date: new Date().toISOString().split('T')[0]
+          }));
+        }
       })
-      .catch(() => setQuote({ quote: "Every step you take towards understanding your body is a step towards healing.", author: "CycleSync AI" }));
-  }, [riskLevel]);
+      .catch(() => setQuote(DEFAULT_QUOTE));
+  }, [user, riskLevel]);
 
   if (!quote) return null;
 

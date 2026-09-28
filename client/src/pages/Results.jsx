@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { api } from '../lib/api';
 import Sidebar from '../components/layout/Sidebar';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -160,15 +161,21 @@ function ExerciseVideoPanel({ exerciseName, onClose }) {
   const ytSearchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(`${exerciseName} exercise tutorial for women beginners PCOS`)}`;
 
   useEffect(() => {
-    setVideoLoading(true);
-    setVideoError(false);
-    setVideoId(null);
-    fetch(`${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}`}/api/exercise-video?q=${encodeURIComponent(exerciseName)}`)
-      .then(r => r.ok ? r.json() : Promise.reject())
-      .then(data => { if (data.videoId) setVideoId(data.videoId); else setVideoError(true); })
-      .catch(() => setVideoError(true))
-      .finally(() => setVideoLoading(false));
-  }, [exerciseName]);
+  setVideoLoading(true);
+  setVideoError(false);
+  setVideoId(null);
+
+  api.get(`/api/exercise-video?q=${encodeURIComponent(exerciseName)}`)
+    .then(data => {
+      if (data.videoId) {
+        setVideoId(data.videoId);
+      } else {
+        setVideoError(true);
+      }
+    })
+    .catch(() => setVideoError(true))
+    .finally(() => setVideoLoading(false));
+}, [exerciseName]);
 
   return (
     <div className="mt-2 rounded-xl overflow-hidden border-2 border-violet-200 dark:border-violet-800 bg-gradient-to-br from-violet-50 via-purple-50 to-indigo-50 dark:from-violet-950/30 dark:via-purple-950/20 dark:to-indigo-950/20 animate-in slide-in-from-top-2 fade-in duration-300">
@@ -362,27 +369,31 @@ function WellnessPlanSection({ riskLevel, riskScore, parsedValues, aiSummary, pr
   const [planPref, setPlanPref] = useState('veg'); // the pref used for the currently shown plan
 
   const fetchPlan = async (prefOverride) => {
-    const pref = prefOverride ?? dietPref;
-    setLoading(true);
-    setError('');
-    try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}`}/api/wellness`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ riskLevel, riskScore, parsedValues, aiSummary, profile, dietaryPreference: pref }),
-      });
-      if (!res.ok) throw new Error('Failed to generate plan');
-      const data = await res.json();
-      setPlan(data);
-      setPlanPref(pref);
-      setGenerated(true);
-    } catch (err) {
-      console.error('Wellness plan error:', err);
-      setError('Failed to generate your wellness plan. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const pref = prefOverride ?? dietPref;
+
+  setLoading(true);
+  setError('');
+
+  try {
+    const data = await api.post('/api/wellness', {
+      riskLevel,
+      riskScore,
+      parsedValues,
+      aiSummary,
+      profile,
+      dietaryPreference: pref,
+    });
+
+    setPlan(data);
+    setPlanPref(pref);
+    setGenerated(true);
+  } catch (err) {
+    console.error('Wellness plan error:', err);
+    setError('Failed to generate your wellness plan. Please try again.');
+  } finally {
+    setLoading(false);
+  }
+};
 
   useEffect(() => {
     if (!generated && !loading) fetchPlan('veg');
@@ -571,20 +582,31 @@ function DoctorPrepCard({ riskLevel, parsedValues, aiSummary }) {
   const [copied, setCopied] = useState(false);
 
   const generate = async () => {
-    if (result) { setOpen(true); return; }
+  if (result) {
     setOpen(true);
-    setLoading(true);
-    try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}`}/api/ai/doctor-prep`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ riskLevel, parsedValues, aiSummary }),
-      });
-      const data = await res.json();
-      setResult(data);
-    } catch { setResult({ questions: [], appointmentTip: 'Could not generate questions. Please try again.' }); }
-    finally { setLoading(false); }
-  };
+    return;
+  }
+
+  setOpen(true);
+  setLoading(true);
+
+  try {
+    const data = await api.post('/api/ai/doctor-prep', {
+      riskLevel,
+      parsedValues,
+      aiSummary,
+    });
+
+    setResult(data);
+  } catch {
+    setResult({
+      questions: [],
+      appointmentTip: 'Could not generate questions. Please try again.'
+    });
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleCopy = () => {
     if (!result?.questions) return;
@@ -691,29 +713,30 @@ export default function Results() {
   const [allAssessments, setAllAssessments] = useState([]);
 
   useEffect(() => {
-    if (!user) return;
-    fetch(`${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}`}/api/assessments/${user.id}`)
-      .then(r => r.json())
-      .then(d => setAllAssessments(Array.isArray(d) ? d : []))
-      .catch(() => {});
+  if (!user) return;
+
+  api.get(`/api/assessments/${user.id}`)
+    .then(d => setAllAssessments(Array.isArray(d) ? d : []))
+    .catch(() => {});
   }, [user]);
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const res = await fetch(`${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}`}/api/assessments/detail/${id}`);
-        if (!res.ok) throw new Error('Failed to fetch assessment');
-        const json = await res.json();
-        setData(json);
-      } catch (err) {
-        console.error('Error fetching results:', err);
-        setError('Failed to load assessment details.');
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchData = async () => {
+    try {
+      const json = await api.get(`/api/assessments/detail/${id}`);
+      setData(json);
+    } catch (err) {
+      console.error('Error fetching results:', err);
+      setError('Failed to load assessment details.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (id) {
     fetchData();
-  }, [id]);
+  }
+}, [id]);
 
   const handleDownloadPDF = () => {
     if (!data) return;
@@ -1059,18 +1082,23 @@ function SymptomPatternsCard({ userId }) {
   const [loading, setLoading] = useState(false);
 
   const fetchPatterns = async () => {
-    if (!userId) return;
-    setLoading(true);
-    try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}`}/api/ai/symptom-patterns`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId }),
-      });
-      const data = await res.json();
-      setPatterns(data);
-    } catch { setPatterns(null); }
+  if (!userId) return;
+
+  setLoading(true);
+
+  try {
+    const data = await api.post('/api/ai/symptom-patterns', {
+      userId,
+    });
+
+    setPatterns(data);
+  } catch (error) {
+    console.error('Error fetching symptom patterns:', error);
+    setPatterns(null);
+  } finally {
     setLoading(false);
-  };
+  }
+};
 
   return (
     <Card className="glass-card">
@@ -1135,16 +1163,23 @@ function DietSwapCard({ riskLevel }) {
   const meals = ['White Rice', 'White Bread', 'Sugary Cereal', 'Pasta', 'Fried Snacks', 'Ice Cream', 'Soda', 'Chips'];
 
   const fetchSwap = async (meal) => {
-    setLoading(true);
-    try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}`}/api/ai/diet-swap`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ currentMeal: meal || meals[Math.floor(Math.random() * meals.length)], mealType: 'any', riskLevel }),
-      });
-      setSwap(await res.json());
-    } catch { setSwap(null); }
+  setLoading(true);
+
+  try {
+    const data = await api.post('/api/ai/diet-swap', {
+      currentMeal: meal || meals[Math.floor(Math.random() * meals.length)],
+      mealType: 'any',
+      riskLevel,
+    });
+
+    setSwap(data);
+  } catch (error) {
+    console.error('Error fetching diet swap:', error);
+    setSwap(null);
+  } finally {
     setLoading(false);
-  };
+  }
+};
 
   return (
     <Card className="glass-card">

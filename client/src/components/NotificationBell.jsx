@@ -2,8 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { Bell, X, Check, CheckCheck, Activity, Droplets, Smile, Upload } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { requestNotificationPermission, sendPushNotification } from '../utils/pushNotifications';
-
-const API = `${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}`}/api`;
+import { api } from '../lib/api';
 
 export default function NotificationBell() {
   const { user } = useAuth();
@@ -23,18 +22,17 @@ export default function NotificationBell() {
     const fetchAll = async () => {
       try {
         // Fetch from server
-        const serverRes = await fetch(`${API}/notifications/${user.id}`);
-        const serverNotifs = await serverRes.json();
+        const serverNotifs = await api.get(`/api/notifications/${user.id}`).catch(() => []);
 
         // Fetch today's logs to build smart reminders
         const today = new Date().toISOString().split('T')[0];
         const [symptomsRes, waterRes, moodRes, assessRes, settingsRes, suppsRes] = await Promise.all([
-          fetch(`${API}/symptoms/${user.id}`).then(r => r.json()).catch(() => []),
-          fetch(`${API}/water/${user.id}`).then(r => r.json()).catch(() => ({ glasses: 0 })),
-          fetch(`${API}/mood/${user.id}`).then(r => r.json()).catch(() => []),
-          fetch(`${API}/assessments/${user.id}`).then(r => r.json()).catch(() => []),
-          fetch(`${API}/settings/${user.id}`).then(r => r.json()).catch(() => ({})),
-          fetch(`${API}/supplements/${user.id}`).then(r => r.json()).catch(() => []),
+          api.get(`/api/symptoms/${user.id}`).catch(() => []),
+          api.get(`/api/water/${user.id}`).catch(() => ({ glasses: 0 })),
+          api.get(`/api/mood/${user.id}`).catch(() => []),
+          api.get(`/api/assessments/${user.id}`).catch(() => []),
+          api.get(`/api/settings/${user.id}`).catch(() => ({})),
+          api.get(`/api/supplements/${user.id}`).catch(() => []),
         ]);
 
         const userSettings = settingsRes || {};
@@ -178,7 +176,7 @@ export default function NotificationBell() {
       // Mark server notifications as read
       const hasServerUnread = notifications.some(n => !n.is_local && !n.is_read);
       if (hasServerUnread && user) {
-        fetch(`${API}/notifications/read-all/${user.id}`, { method: 'PATCH' }).catch(() => {});
+        api.patch(`/api/notifications/read-all/${user.id}`, {}).catch(() => {});
       }
 
       // Update local state
@@ -196,7 +194,7 @@ export default function NotificationBell() {
       const existing = JSON.parse(localStorage.getItem(reminderReadKey) || '[]');
       localStorage.setItem(reminderReadKey, JSON.stringify([...existing, id]));
     } else {
-      fetch(`${API}/notifications/${id}/read`, { method: 'PATCH' }).catch(() => {});
+      api.patch(`/api/notifications/${id}/read`, {}).catch(() => {});
     }
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
   };

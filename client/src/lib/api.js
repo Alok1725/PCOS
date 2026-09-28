@@ -7,12 +7,24 @@ async function authHeaders() {
   return session ? { Authorization: `Bearer ${session.access_token}` } : {};
 }
 
+async function handleResponse(res) {
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const errorMsg = data?.error || `HTTP ${res.status}: ${res.statusText}`;
+    const err = new Error(errorMsg);
+    err.status = res.status;
+    err.data = data;
+    throw err;
+  }
+  return data;
+}
+
 export const api = {
   async get(path) {
     const res = await fetch(`${BASE}${path}`, {
       headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
     });
-    return res.json();
+    return handleResponse(res);
   },
 
   async post(path, body) {
@@ -21,7 +33,7 @@ export const api = {
       headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
       body: JSON.stringify(body),
     });
-    return res.json();
+    return handleResponse(res);
   },
 
   async patch(path, body) {
@@ -30,7 +42,7 @@ export const api = {
       headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
       body: JSON.stringify(body),
     });
-    return res.json();
+    return handleResponse(res);
   },
 
   async put(path, body) {
@@ -39,7 +51,7 @@ export const api = {
       headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
       body: JSON.stringify(body),
     });
-    return res.json();
+    return handleResponse(res);
   },
 
   async delete(path) {
@@ -47,7 +59,7 @@ export const api = {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
     });
-    return res.json();
+    return handleResponse(res);
   },
 
   // For multipart/form-data (file uploads) — don't set Content-Type, browser sets it with boundary
@@ -57,6 +69,7 @@ export const api = {
       headers: await authHeaders(),
       body: formData,
     });
-    return res.json();
+    return handleResponse(res);
   },
 };
+

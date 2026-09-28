@@ -1,8 +1,6 @@
-import Groq from 'groq-sdk';
+import { getChatCompletion } from './aiProvider.js';
 import dotenv from 'dotenv';
 dotenv.config();
-
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY || '' });
 
 export const analyzeHealthData = async (profile, bloodReportText, usgReportText) => {
   // Calculate BMI
@@ -75,43 +73,31 @@ Rules:
 - Respond ONLY with valid JSON. No markdown, no code fences, no extra text.
 `;
 
-  console.log('[Groq] Sending analysis request via Groq (Llama 3.3-70B)...');
-  console.log('[Groq] API Key present:', !!process.env.GROQ_API_KEY);
+  console.log('[AI Analysis] Sending analysis request via AI Provider...');
 
   try {
-    const chatCompletion = await groq.chat.completions.create({
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a medical screening AI. Respond ONLY with valid JSON. No markdown, no code fences, no explanations.'
-        },
-        {
-          role: 'user',
-          content: prompt
-        }
-      ],
-      model: 'llama-3.3-70b-versatile',
+    const completion = await getChatCompletion({
+      systemPrompt: 'You are a medical screening AI. Respond ONLY with valid JSON. No markdown, no code fences, no explanations.',
+      messages: [{ role: 'user', content: prompt }],
       temperature: 0.3,
-      max_tokens: 2048,
-      response_format: { type: 'json_object' }
+      maxTokens: 2048,
+      jsonMode: true,
     });
 
-    const responseText = chatCompletion.choices[0]?.message?.content || '';
-    console.log('[Groq] Response received, length:', responseText.length);
+    const responseText = completion.text || '';
+    console.log(`[AI Analysis] Response received (${completion.provider}/${completion.model}), length:`, responseText.length);
 
     try {
-      const parsedData = JSON.parse(responseText);
-      console.log('[Groq] Parsed risk_level:', parsedData.risk_level);
+      const cleanJson = responseText.replace(/```json\n?|\n?```/g, '').trim();
+      const parsedData = JSON.parse(cleanJson);
+      console.log('[AI Analysis] Parsed risk_level:', parsedData.risk_level);
       return parsedData;
     } catch (parseError) {
-      console.error('[Groq] JSON parse error. Raw response:', responseText.substring(0, 500));
+      console.error('[AI Analysis] JSON parse error. Raw response:', responseText.substring(0, 500));
       throw new Error('Failed to parse AI response as JSON');
     }
   } catch (error) {
-    console.error('[Groq] Error details:', error.message);
-    if (error.message?.includes('API')) {
-      console.error('[Groq] Check your GROQ_API_KEY in server/.env');
-    }
+    console.error('[AI Analysis] Error details:', error.message);
     throw new Error(`Failed to generate AI analysis: ${error.message}`);
   }
 };

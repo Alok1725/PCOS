@@ -31,11 +31,14 @@ function getPageName(pathname) {
 }
 
 // Build a user-aware, context-sensitive greeting
-function getGreeting(name, path, hasAssessments) {
+function getGreeting(name, path, hasAssessments, user) {
+  if (!user) {
+    return `Hi there! 🌸 Please sign in to chat with CycleSync AI, ask PCOS questions, and get personalized wellness guidance.`;
+  }
   const n = name?.split(' ')[0];
 
   if (path === '/' || path === '/login' || path === '/signup') {
-    return `Hi there! 🌸 I'm your CycleSync wellness assistant. I can help you learn about PCOS, hormonal health, and how to use this app. What would you like to know?`;
+    return `Hi there! 🌸 I'm your CycleSync wellness assistant. What would you like to know about PCOS or hormonal health?`;
   }
 
   const hello = n ? `Hi ${n}! 💛` : `Hey there! 💛`;
@@ -135,9 +138,9 @@ export default function ChatBot() {
 
   const addGreeting = useCallback(() => {
     const path = location.pathname.startsWith('/results') ? '/results' : location.pathname;
-    const greeting = getGreeting(userName, path, hasAssessments);
+    const greeting = getGreeting(userName, path, hasAssessments, user);
     setMessages([{ role: 'assistant', content: greeting }]);
-  }, [location.pathname, userName, hasAssessments]);
+  }, [location.pathname, userName, hasAssessments, user]);
 
   const handleOpen = () => {
     setIsAnimating(true);
@@ -158,6 +161,19 @@ export default function ChatBot() {
     const trimmed = (text || input).trim();
     if (!trimmed || isTyping) return;
 
+    if (!user) {
+      setMessages(prev => [
+        ...prev,
+        { role: 'user', content: trimmed },
+        {
+          role: 'assistant',
+          content: 'Please log in or create an account to chat with CycleSync AI. 💛'
+        }
+      ]);
+      setInput('');
+      return;
+    }
+
     const userMsg = { role: 'user', content: trimmed };
     setMessages(prev => [...prev, userMsg]);
     setInput('');
@@ -173,7 +189,11 @@ export default function ChatBot() {
         chatHistory: messages.slice(-20),
       });
 
-      setMessages(prev => [...prev, { role: 'assistant', content: res.reply }]);
+      if (res?.reply) {
+        setMessages(prev => [...prev, { role: 'assistant', content: res.reply }]);
+      } else {
+        throw new Error('No reply received from server');
+      }
     } catch (err) {
       console.error('Chat error:', err);
       setMessages(prev => [...prev, {

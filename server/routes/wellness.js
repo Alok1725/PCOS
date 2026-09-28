@@ -1,9 +1,6 @@
 import express from 'express';
-import Groq from 'groq-sdk';
-import dotenv from 'dotenv';
-dotenv.config();
+import { getChatCompletion } from '../services/aiProvider.js';
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY || '' });
 const router = express.Router();
 
 router.post('/', async (req, res) => {
@@ -94,24 +91,19 @@ RULES:
 - Include Indian and international meal options.
 - Respond ONLY with valid JSON, no markdown.`;
 
-    const chatCompletion = await groq.chat.completions.create({
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a certified nutritionist and fitness trainer specializing in PCOS. Respond ONLY with valid JSON. No markdown, no code fences.'
-        },
-        { role: 'user', content: prompt }
-      ],
-      model: 'llama-3.3-70b-versatile',
+    const completion = await getChatCompletion({
+      systemPrompt: 'You are a certified nutritionist and fitness trainer specializing in PCOS. Respond ONLY with valid JSON. No markdown, no code fences.',
+      messages: [{ role: 'user', content: prompt }],
       temperature: 0.5,
-      max_tokens: 4096,
-      response_format: { type: 'json_object' }
+      maxTokens: 4096,
+      jsonMode: true,
     });
 
-    const text = chatCompletion.choices[0]?.message?.content || '';
-    console.log('[Wellness] AI response length:', text.length);
+    const text = completion.text || '{}';
+    console.log(`[Wellness] AI (${completion.provider}/${completion.model}) response length:`, text.length);
 
-    const plan = JSON.parse(text);
+    const cleanJson = text.replace(/```json\n?|\n?```/g, '').trim();
+    const plan = JSON.parse(cleanJson);
     console.log('[Wellness] Plan generated — diet days:', plan.diet?.meals?.length, ', exercise sections:', plan.exercise?.sections?.length);
 
     res.status(200).json(plan);

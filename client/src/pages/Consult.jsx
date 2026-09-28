@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { api } from '../lib/api';
 import Sidebar from '../components/layout/Sidebar';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -59,14 +60,21 @@ export default function Consult() {
   useEffect(() => { detectLocation(); }, []);
 
   useEffect(() => {
-    fetch(`${API}/reviews`).then(r => r.json()).then(d => setReviews(Array.isArray(d) ? d : [])).catch(() => {});
+  api.get('/api/reviews')
+    .then(d => setReviews(Array.isArray(d) ? d : []))
+    .catch(() => {});
   }, []);
 
   useEffect(() => {
-    if (!user) return;
-    fetch(`${API}/assessments/${user.id}`).then(r => r.json()).then(d => {
-      if (Array.isArray(d) && d.length > 0) setLatestRisk(d[0].risk_level || 'none');
-    }).catch(() => {});
+  if (!user) return;
+
+  api.get(`/api/assessments/${user.id}`)
+    .then(d => {
+      if (Array.isArray(d) && d.length > 0) {
+        setLatestRisk(d[0].risk_level || 'none');
+      }
+    })
+    .catch(() => {});
   }, [user]);
 
   const detectLocation = () => {
@@ -92,36 +100,63 @@ export default function Consult() {
   const getGoogleMapsEmbedUrl = () => location ? `https://www.google.com/maps/embed/v1/search?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&q=${activeSpecialist.searchQuery}&center=${location.lat},${location.lng}&zoom=13` : null;
 
   const handlePostReview = async () => {
-    if (!reviewForm.doctorName.trim()) return;
-    setPostingReview(true);
-    try {
-      const res = await fetch(`${API}/reviews`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, ...reviewForm }),
-      });
-      const data = await res.json();
-      setReviews(prev => [data, ...prev]);
-      setReviewForm({ doctorName: '', specialty: '', location: '', rating: 5, reviewText: '' });
-      setShowReviewForm(false);
-    } catch (e) { console.error(e); }
-    finally { setPostingReview(false); }
-  };
+  if (!reviewForm.doctorName.trim()) return;
+
+  setPostingReview(true);
+
+  try {
+    const data = await api.post('/api/reviews', {
+      userId: user.id,
+      ...reviewForm,
+    });
+
+    setReviews(prev => [data, ...prev]);
+    setReviewForm({
+      doctorName: '',
+      specialty: '',
+      location: '',
+      rating: 5,
+      reviewText: ''
+    });
+    setShowReviewForm(false);
+  } catch (e) {
+    console.error(e);
+  } finally {
+    setPostingReview(false);
+  }
+};
 
   const handleFaqExpand = async (question) => {
-    if (expandedFaq === question) { setExpandedFaq(null); return; }
-    setExpandedFaq(question);
-    if (faqAnswers[question]) return;
-    setFaqLoading(question);
-    try {
-      const res = await fetch(`${API}/ai/faq`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question, riskLevel: latestRisk }),
-      });
-      const data = await res.json();
-      setFaqAnswers(prev => ({ ...prev, [question]: data.answer }));
-    } catch { setFaqAnswers(prev => ({ ...prev, [question]: 'Unable to load answer.' })); }
-    finally { setFaqLoading(null); }
-  };
+  if (expandedFaq === question) {
+    setExpandedFaq(null);
+    return;
+  }
+
+  setExpandedFaq(question);
+
+  if (faqAnswers[question]) return;
+
+  setFaqLoading(question);
+
+  try {
+    const data = await api.post('/api/ai/faq', {
+      question,
+      riskLevel: latestRisk,
+    });
+
+    setFaqAnswers(prev => ({
+      ...prev,
+      [question]: data.answer
+    }));
+  } catch {
+    setFaqAnswers(prev => ({
+      ...prev,
+      [question]: 'Unable to load answer.'
+    }));
+  } finally {
+    setFaqLoading(null);
+  }
+};
 
   const embedUrl = getGoogleMapsEmbedUrl();
 

@@ -4,29 +4,20 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const pdfParse = require('pdf-parse');
 import tesseract from 'tesseract.js';
-import Groq from 'groq-sdk';
+import { getVisionCompletion } from '../services/aiProvider.js';
 import dotenv from 'dotenv';
 dotenv.config();
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY || '' });
 const router = express.Router();
 
-// Use Groq's Llama 3.2 Vision to analyze USG images
+// Analyze USG images with Vision AI (Groq Scout 4 with Gemini fallback)
 async function analyzeImageWithVision(imageBuffer, mimeType) {
-  console.log('[Vision] Analyzing USG image with Llama 3.2 Vision...');
+  console.log('[Vision] Analyzing USG image with Vision AI...');
   
   const base64Image = imageBuffer.toString('base64');
-  const dataUrl = `data:${mimeType};base64,${base64Image}`;
 
   try {
-    const chatCompletion = await groq.chat.completions.create({
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'text',
-              text: `You are a radiology assistant. Analyze this ultrasound (USG) image for PCOS indicators. Describe in detail:
+    const prompt = `You are a radiology assistant. Analyze this ultrasound (USG) image for PCOS indicators. Describe in detail:
 1. Ovarian morphology (size, shape, volume if visible)
 2. Number of follicles visible and their sizes
 3. Any "string of pearls" or peripheral follicle arrangement
@@ -34,24 +25,19 @@ async function analyzeImageWithVision(imageBuffer, mimeType) {
 5. Any other relevant findings
 
 If this does not appear to be an ultrasound image, describe what you see.
-Provide your findings as a structured medical report text.`
-            },
-            {
-              type: 'image_url',
-              image_url: {
-                url: dataUrl
-              }
-            }
-          ]
-        }
-      ],
-      model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+Provide your findings as a structured medical report text.`;
+
+    const completion = await getVisionCompletion({
+      prompt,
+      imageBase64: base64Image,
+      mimeType: mimeType || 'image/jpeg',
       temperature: 0.3,
-      max_tokens: 1024,
+      maxTokens: 1024,
+      jsonMode: false,
     });
 
-    const text = chatCompletion.choices[0]?.message?.content || '';
-    console.log(`[Vision] Analysis complete: ${text.length} characters`);
+    const text = completion.text || '';
+    console.log(`[Vision] Analysis complete (${completion.provider}/${completion.model}): ${text.length} characters`);
     return text;
   } catch (error) {
     console.error('[Vision] Error:', error.message);

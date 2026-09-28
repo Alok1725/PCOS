@@ -16,6 +16,8 @@ const navItems = [
   { name: 'Settings', icon: Settings, path: '/settings' },
 ];
 
+import { api } from '../../lib/api';
+
 export default function Sidebar() {
   const location = useLocation();
   const { theme, toggleTheme } = useTheme();
@@ -26,13 +28,11 @@ export default function Sidebar() {
   useEffect(() => {
     if (!user) return;
     // Fetch user name
-    fetch(`${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}`}/api/profile/${user.id}`)
-      .then(r => r.json())
+    api.get(`/api/profile/${user.id}`)
       .then(d => setUserName(d?.full_name?.split(' ')[0] || ''))
       .catch(() => {});
     // Fetch unread notifications count
-    fetch(`${import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}`}/api/notifications/${user.id}`)
-      .then(r => r.json())
+    api.get(`/api/notifications/${user.id}`)
       .then(n => setUnreadCount(Array.isArray(n) ? n.filter(x => !x.is_read).length : 0))
       .catch(() => {});
   }, [user]);

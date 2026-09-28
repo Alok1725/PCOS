@@ -1,11 +1,18 @@
 import express from 'express';
-import Groq from 'groq-sdk';
+import { getChatCompletion } from '../services/aiProvider.js';
 import { supabase } from '../utils/db.js';
-import dotenv from 'dotenv';
-dotenv.config();
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY || '' });
 const router = express.Router();
+
+// Helper to safely parse JSON from model output
+function safeJsonParse(text, defaultVal = {}) {
+  try {
+    const clean = text.replace(/```json\n?|\n?```/g, '').trim();
+    return JSON.parse(clean);
+  } catch {
+    return defaultVal;
+  }
+}
 
 // Generate AI tips based on user's PCOS status
 router.post('/tips', async (req, res) => {
@@ -40,24 +47,16 @@ Rules:
 - For none: focus on general wellness
 - JSON only, no markdown`;
 
-    const completion = await groq.chat.completions.create({
-      messages: [
-        { role: 'system', content: 'Respond only with valid JSON array. No markdown.' },
-        { role: 'user', content: prompt }
-      ],
-      model: 'llama-3.3-70b-versatile',
+    const completion = await getChatCompletion({
+      systemPrompt: 'Respond only with valid JSON array. No markdown.',
+      messages: [{ role: 'user', content: prompt }],
       temperature: 0.8,
-      max_tokens: 1500,
-      response_format: { type: 'json_object' }
+      maxTokens: 1500,
+      jsonMode: true,
     });
 
-    const text = completion.choices[0]?.message?.content || '[]';
-    let tips;
-    try {
-      const parsed = JSON.parse(text);
-      tips = Array.isArray(parsed) ? parsed : parsed.tips || parsed.data || [];
-    } catch { tips = []; }
-
+    const parsed = safeJsonParse(completion.text, []);
+    const tips = Array.isArray(parsed) ? parsed : parsed.tips || parsed.data || [];
     res.json({ tips });
   } catch (e) {
     console.error('[AI Tips] Error:', e.message);
@@ -69,26 +68,38 @@ Rules:
 router.post('/quote', async (req, res) => {
   try {
     const { riskLevel, userName } = req.body;
-    const completion = await groq.chat.completions.create({
-      messages: [
-        { role: 'system', content: 'Respond only with valid JSON. No markdown.' },
-        { role: 'user', content: `Generate 1 unique motivational wellness quote for a woman ${riskLevel === 'pcos_positive' ? 'managing PCOS' : riskLevel === 'at_risk' ? 'focused on health prevention' : 'maintaining wellness'}. ${userName ? `Her name is ${userName}.` : ''}
+
+    const prompt = `Generate 1 unique motivational wellness quote for a woman ${
+      riskLevel === 'pcos_positive'
+        ? 'managing PCOS'
+        : riskLevel === 'at_risk'
+        ? 'focused on health prevention'
+        : 'maintaining wellness'
+    }. ${userName ? `Her name is ${userName}.` : ''}
 
 Respond with JSON: { "quote": "<inspiring quote>", "author": "<attribution or 'CycleSync AI'>" }
 
-Make it empowering, specific to women's health, and different from generic motivational quotes. It can be a real quote or AI-generated.` }
-      ],
-      model: 'llama-3.3-70b-versatile',
+Make it empowering, specific to women's health, and different from generic motivational quotes. It can be a real quote or AI-generated.`;
+
+    const completion = await getChatCompletion({
+      systemPrompt: 'Respond only with valid JSON. No markdown.',
+      messages: [{ role: 'user', content: prompt }],
       temperature: 0.9,
-      max_tokens: 200,
-      response_format: { type: 'json_object' }
+      maxTokens: 200,
+      jsonMode: true,
     });
 
-    const parsed = JSON.parse(completion.choices[0]?.message?.content || '{}');
+    const parsed = safeJsonParse(completion.text, {
+      quote: "Your body is your most precious gift. Honor it, nourish it, listen to it.",
+      author: "CycleSync AI",
+    });
     res.json(parsed);
   } catch (e) {
     console.error('[AI Quote] Error:', e.message);
-    res.json({ quote: "Your body is your most precious gift. Honor it, nourish it, listen to it.", author: "CycleSync AI" });
+    res.json({
+      quote: "Your body is your most precious gift. Honor it, nourish it, listen to it.",
+      author: "CycleSync AI",
+    });
   }
 });
 
@@ -96,16 +107,15 @@ Make it empowering, specific to women's health, and different from generic motiv
 router.post('/faq', async (req, res) => {
   try {
     const { question, riskLevel } = req.body;
-    const completion = await groq.chat.completions.create({
-      messages: [
-        { role: 'system', content: 'You are a knowledgeable women\'s health advisor. Give clear, empathetic, evidence-based answers. Keep response under 200 words. Do not diagnose.' },
-        { role: 'user', content: `Patient PCOS risk level: ${riskLevel || 'unknown'}. Question: ${question}` }
-      ],
-      model: 'llama-3.3-70b-versatile',
+    const completion = await getChatCompletion({
+      systemPrompt: "You are a knowledgeable women's health advisor. Give clear, empathetic, evidence-based answers. Keep response under 200 words. Do not diagnose.",
+      messages: [{ role: 'user', content: `Patient PCOS risk level: ${riskLevel || 'unknown'}. Question: ${question}` }],
       temperature: 0.4,
-      max_tokens: 500
+      maxTokens: 500,
+      jsonMode: false,
     });
-    res.json({ answer: completion.choices[0]?.message?.content || 'Unable to generate answer.' });
+
+    res.json({ answer: completion.text || 'Unable to generate answer.' });
   } catch (e) {
     console.error('[AI FAQ] Error:', e.message);
     res.status(500).json({ error: e.message });
@@ -116,7 +126,6 @@ router.post('/faq', async (req, res) => {
 router.post('/weekly-digest', async (req, res) => {
   try {
     const userId = req.user.id;
-
     const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
 
     const [symptoms, water, mood, cycle] = await Promise.all([
@@ -135,10 +144,7 @@ router.post('/weekly-digest', async (req, res) => {
       hasCycleData: (cycle.data?.length || 0) > 0,
     };
 
-    const completion = await groq.chat.completions.create({
-      messages: [
-        { role: 'system', content: 'Respond only with valid JSON. No markdown.' },
-        { role: 'user', content: `Generate a warm, encouraging weekly health digest for a PCOS patient based on this tracking data:
+    const prompt = `Generate a warm, encouraging weekly health digest for a PCOS patient based on this tracking data:
 
 ${JSON.stringify(trackingData)}
 
@@ -151,15 +157,17 @@ Respond with JSON:
   "trackingScore": <1-10 rating of how well they tracked this week>
 }
 
-Be warm, supportive. Celebrate wins. If data is sparse, encourage more tracking gently.` }
-      ],
-      model: 'llama-3.3-70b-versatile',
+Be warm, supportive. Celebrate wins. If data is sparse, encourage more tracking gently.`;
+
+    const completion = await getChatCompletion({
+      systemPrompt: 'Respond only with valid JSON. No markdown.',
+      messages: [{ role: 'user', content: prompt }],
       temperature: 0.6,
-      max_tokens: 600,
-      response_format: { type: 'json_object' }
+      maxTokens: 600,
+      jsonMode: true,
     });
 
-    const digest = JSON.parse(completion.choices[0]?.message?.content || '{}');
+    const digest = safeJsonParse(completion.text, {});
     res.json(digest);
   } catch (e) {
     console.error('[AI Digest] Error:', e.message);
@@ -171,7 +179,6 @@ Be warm, supportive. Celebrate wins. If data is sparse, encourage more tracking 
 router.post('/symptom-patterns', async (req, res) => {
   try {
     const userId = req.user.id;
-
     const monthAgo = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
 
     const [symptoms, cycle] = await Promise.all([
@@ -183,10 +190,7 @@ router.post('/symptom-patterns', async (req, res) => {
       return res.json({ patterns: [], summary: 'Not enough symptom data yet. Log your symptoms daily for AI pattern detection!', trend: 'insufficient_data' });
     }
 
-    const completion = await groq.chat.completions.create({
-      messages: [
-        { role: 'system', content: 'Respond only with valid JSON. No markdown.' },
-        { role: 'user', content: `Analyze these PCOS symptom logs for patterns and correlations:
+    const prompt = `Analyze these PCOS symptom logs for patterns and correlations:
 
 Symptoms (30 days): ${JSON.stringify(symptoms.data?.map(s => ({ date: s.logged_date, symptoms: s.symptoms })))}
 Cycle data: ${JSON.stringify(cycle.data?.map(c => ({ start: c.start_date, end: c.end_date })))}
@@ -201,15 +205,17 @@ Respond with JSON:
   "trend": "improving|stable|worsening|insufficient_data"
 }
 
-Look for: symptom clusters, cyclical patterns around periods, frequency changes over time. Be specific and actionable.` }
-      ],
-      model: 'llama-3.3-70b-versatile',
+Look for: symptom clusters, cyclical patterns around periods, frequency changes over time. Be specific and actionable.`;
+
+    const completion = await getChatCompletion({
+      systemPrompt: 'Respond only with valid JSON. No markdown.',
+      messages: [{ role: 'user', content: prompt }],
       temperature: 0.4,
-      max_tokens: 800,
-      response_format: { type: 'json_object' }
+      maxTokens: 800,
+      jsonMode: true,
     });
 
-    const result = JSON.parse(completion.choices[0]?.message?.content || '{}');
+    const result = safeJsonParse(completion.text, {});
     res.json(result);
   } catch (e) {
     console.error('[AI Patterns] Error:', e.message);
@@ -222,10 +228,7 @@ router.post('/diet-swap', async (req, res) => {
   try {
     const { currentMeal, mealType, riskLevel } = req.body;
 
-    const completion = await groq.chat.completions.create({
-      messages: [
-        { role: 'system', content: 'Respond only with valid JSON. No markdown.' },
-        { role: 'user', content: `Suggest a PCOS-friendly alternative for this meal:
+    const prompt = `Suggest a PCOS-friendly alternative for this meal:
 
 Current: ${currentMeal || 'general meal'}
 Meal type: ${mealType || 'any'}
@@ -233,22 +236,24 @@ PCOS risk: ${riskLevel || 'unknown'}
 
 Respond with JSON:
 {
-  "original": "${currentMeal}",
+  "original": "${currentMeal || 'general meal'}",
   "alternative": "<PCOS-friendly alternative>",
   "reason": "<why this swap helps PCOS, 1 sentence>",
   "calories": "<approximate calories>",
   "benefits": ["<benefit 1>", "<benefit 2>"]
 }
 
-Focus on anti-inflammatory, low-glycemic options.` }
-      ],
-      model: 'llama-3.3-70b-versatile',
+Focus on anti-inflammatory, low-glycemic options.`;
+
+    const completion = await getChatCompletion({
+      systemPrompt: 'Respond only with valid JSON. No markdown.',
+      messages: [{ role: 'user', content: prompt }],
       temperature: 0.7,
-      max_tokens: 300,
-      response_format: { type: 'json_object' }
+      maxTokens: 300,
+      jsonMode: true,
     });
 
-    const result = JSON.parse(completion.choices[0]?.message?.content || '{}');
+    const result = safeJsonParse(completion.text, {});
     res.json(result);
   } catch (e) {
     console.error('[AI Diet] Error:', e.message);
@@ -271,10 +276,7 @@ router.post('/risk-trend', async (req, res) => {
       return res.json({ analysis: null, message: 'Need at least 2 assessments for trend analysis.' });
     }
 
-    const completion = await groq.chat.completions.create({
-      messages: [
-        { role: 'system', content: 'Respond only with valid JSON. No markdown.' },
-        { role: 'user', content: `Analyze this PCOS assessment trend over time:
+    const prompt = `Analyze this PCOS assessment trend over time:
 
 ${JSON.stringify(assessments.map(a => ({ date: a.created_at?.split('T')[0], score: a.risk_score, level: a.risk_level })))}
 
@@ -287,15 +289,17 @@ Respond with JSON:
   "tips": ["<1 actionable tip based on trend>"]
 }
 
-Be encouraging and supportive regardless of trend. Focus on progress.` }
-      ],
-      model: 'llama-3.3-70b-versatile',
+Be encouraging and supportive regardless of trend. Focus on progress.`;
+
+    const completion = await getChatCompletion({
+      systemPrompt: 'Respond only with valid JSON. No markdown.',
+      messages: [{ role: 'user', content: prompt }],
       temperature: 0.5,
-      max_tokens: 400,
-      response_format: { type: 'json_object' }
+      maxTokens: 400,
+      jsonMode: true,
     });
 
-    const result = JSON.parse(completion.choices[0]?.message?.content || '{}');
+    const result = safeJsonParse(completion.text, {});
     res.json({ analysis: result, assessmentCount: assessments.length });
   } catch (e) {
     console.error('[AI Trend] Error:', e.message);
@@ -315,12 +319,7 @@ router.post('/doctor-prep', async (req, res) => {
           .join(', ')
       : 'Not available';
 
-    const completion = await groq.chat.completions.create({
-      messages: [
-        { role: 'system', content: 'Respond only with valid JSON. No markdown.' },
-        {
-          role: 'user',
-          content: `You are a women's health advocate helping a PCOS patient prepare for her doctor appointment.
+    const prompt = `You are a women's health advocate helping a PCOS patient prepare for her doctor appointment.
 
 Patient data:
 - PCOS Risk Level: ${riskLevel || 'unknown'}
@@ -346,16 +345,17 @@ Rules:
 - Mix categories: don't just ask about one topic
 - Be assertive but respectful in tone
 - Include at least one question about next steps / follow-up tests
-- JSON only, no markdown`
-        }
-      ],
-      model: 'llama-3.3-70b-versatile',
+- JSON only, no markdown`;
+
+    const completion = await getChatCompletion({
+      systemPrompt: 'Respond only with valid JSON. No markdown.',
+      messages: [{ role: 'user', content: prompt }],
       temperature: 0.5,
-      max_tokens: 1200,
-      response_format: { type: 'json_object' }
+      maxTokens: 1200,
+      jsonMode: true,
     });
 
-    const result = JSON.parse(completion.choices[0]?.message?.content || '{}');
+    const result = safeJsonParse(completion.text, {});
     res.json(result);
   } catch (e) {
     console.error('[Doctor Prep] Error:', e.message);
